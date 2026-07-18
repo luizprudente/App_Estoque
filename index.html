@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contagem de Estoque e Lista de Compras</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen">
+  <div class="max-w-4xl mx-auto px-4 py-6">
+
+    <!-- Cabeçalho -->
+    <header class="mb-6">
+      <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">📦 Contagem de Estoque e Lista de Compras</h1>
+      <p class="text-sm text-gray-500 mt-1">Cadastre produtos, faça a contagem diária e gere sua lista de compras automaticamente.</p>
+    </header>
+
+    <!-- Navegação por abas -->
+    <nav class="flex flex-wrap gap-2 mb-6" role="tablist">
+      <button data-tab="cadastro" class="tab-btn px-4 py-2 rounded-lg font-medium bg-blue-600 text-white shadow">
+        Cadastro de Produtos
+      </button>
+      <button data-tab="contagem" class="tab-btn px-4 py-2 rounded-lg font-medium bg-white text-gray-700 hover:bg-gray-50 shadow">
+        Contagem do Dia
+      </button>
+      <button data-tab="lista" class="tab-btn px-4 py-2 rounded-lg font-medium bg-white text-gray-700 hover:bg-gray-50 shadow">
+        Lista de Compras
+      </button>
+    </nav>
+
+    <!-- ===================== ABA: CADASTRO ===================== -->
+    <section id="tab-cadastro" class="tab-panel space-y-6">
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-lg font-semibold mb-4">Novo Produto</h2>
+        <form id="form-produto" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+          <div class="sm:col-span-2">
+            <label class="block text-sm font-medium text-gray-600 mb-1" for="input-nome">Nome do Produto</label>
+            <input id="input-nome" type="text" required placeholder="Ex: Arroz 5kg"
+              class="w-full rounded-lg border-gray-300 border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1" for="input-atual">Estoque Atual</label>
+            <input id="input-atual" type="number" min="0" step="1" required placeholder="0"
+              class="w-full rounded-lg border-gray-300 border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1" for="input-minimo">Estoque Mínimo</label>
+            <input id="input-minimo" type="number" min="0" step="1" required placeholder="0"
+              class="w-full rounded-lg border-gray-300 border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
+          <div class="sm:col-span-4">
+            <button type="submit"
+              class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2 rounded-lg shadow transition">
+              + Adicionar Produto
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-lg font-semibold mb-4">Produtos Cadastrados</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 border-b">
+                <th class="py-2 pr-2">Nome</th>
+                <th class="py-2 pr-2">Estoque Atual</th>
+                <th class="py-2 pr-2">Estoque Mínimo</th>
+                <th class="py-2 pr-2 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-cadastro"></tbody>
+          </table>
+          <p id="cadastro-vazio" class="text-gray-400 text-sm py-4 hidden">Nenhum produto cadastrado ainda.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ABA: CONTAGEM DO DIA ===================== -->
+    <section id="tab-contagem" class="tab-panel space-y-4 hidden">
+      <div class="bg-white rounded-xl shadow p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold">Contagem do Dia</h2>
+          <span class="text-xs text-gray-400" id="data-contagem"></span>
+        </div>
+        <p class="text-sm text-gray-500 mb-4">Atualize o estoque atual de cada item. As alterações são salvas automaticamente.</p>
+        <div id="lista-contagem" class="divide-y"></div>
+        <p id="contagem-vazio" class="text-gray-400 text-sm py-4 hidden">Cadastre produtos primeiro na aba "Cadastro de Produtos".</p>
+      </div>
+    </section>
+
+    <!-- ===================== ABA: LISTA DE COMPRAS ===================== -->
+    <section id="tab-lista" class="tab-panel space-y-4 hidden">
+      <div class="bg-white rounded-xl shadow p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 class="text-lg font-semibold">Lista de Compras</h2>
+          <button id="btn-gerar-lista"
+            class="bg-green-600 hover:bg-green-700 text-white font-medium px-5 py-2 rounded-lg shadow transition">
+            🔄 Gerar Lista de Compras
+          </button>
+        </div>
+
+        <div id="lista-compras-resultado" class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 border-b">
+                <th class="py-2 pr-2">Produto</th>
+                <th class="py-2 pr-2">Estoque Atual</th>
+                <th class="py-2 pr-2">Estoque Mínimo</th>
+                <th class="py-2 pr-2">Comprar</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-lista-compras"></tbody>
+          </table>
+          <p id="lista-vazia" class="text-gray-400 text-sm py-4 hidden">Nenhum item abaixo do estoque mínimo. Clique em "Gerar Lista de Compras" para atualizar.</p>
+        </div>
+
+        <div id="lista-compras-acoes" class="flex flex-wrap gap-3 mt-5 hidden">
+          <button id="btn-exportar-texto"
+            class="bg-gray-700 hover:bg-gray-800 text-white font-medium px-4 py-2 rounded-lg shadow transition">
+            📋 Exportar como Texto
+          </button>
+          <button id="btn-whatsapp"
+            class="bg-emerald-500 hover:bg-emerald-600 text-white font-medium px-4 py-2 rounded-lg shadow transition">
+            💬 Enviar para WhatsApp
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Toast simples de feedback -->
+  <div id="toast" class="fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg opacity-0 pointer-events-none transition-opacity"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
