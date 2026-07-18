@@ -124,10 +124,13 @@ formProduto.addEventListener('submit', (e) => {
   e.preventDefault();
 
   const nome = inputNome.value.trim();
-  const estoqueAtual = Number(inputAtual.value);
-  const estoqueMinimo = Number(inputMinimo.value);
+  const estoqueAtual = paraNumero(inputAtual.value);
+  const estoqueMinimo = paraNumero(inputMinimo.value);
 
-  if (!nome || estoqueAtual < 0 || estoqueMinimo < 0) return;
+  if (!nome || Number.isNaN(estoqueAtual) || Number.isNaN(estoqueMinimo) || estoqueAtual < 0 || estoqueMinimo < 0) {
+    mostrarToast('Preencha o nome e valores válidos (ex: 4 ou 4,3).');
+    return;
+  }
 
   produtos.push({
     id: crypto.randomUUID(),
@@ -151,7 +154,7 @@ function criarProdutoRapido(nomeSugerido) {
   if (!nome || !nome.trim()) return null;
 
   const minimoTexto = window.prompt(`Estoque mínimo para "${nome.trim()}":`, '0');
-  const estoqueMinimo = Number(minimoTexto) || 0;
+  const estoqueMinimo = paraNumero(minimoTexto) || 0;
 
   const novoProduto = {
     id: crypto.randomUUID(),
@@ -177,8 +180,8 @@ function renderizarCadastro() {
     tr.className = 'border-b last:border-0';
     tr.innerHTML = `
       <td class="py-2 pr-2 font-medium">${escapeHtml(produto.nome)}</td>
-      <td class="py-2 pr-2">${produto.estoqueAtual}</td>
-      <td class="py-2 pr-2">${produto.estoqueMinimo}</td>
+      <td class="py-2 pr-2">${formatarNumero(produto.estoqueAtual)}</td>
+      <td class="py-2 pr-2">${formatarNumero(produto.estoqueMinimo)}</td>
       <td class="py-2 pr-2 text-right">
         <button class="text-red-500 hover:text-red-700 text-xs font-medium" data-excluir="${produto.id}">
           Excluir
@@ -222,11 +225,11 @@ function renderizarContagem() {
     linha.innerHTML = `
       <div>
         <p class="font-medium">${escapeHtml(produto.nome)}</p>
-        <p class="text-xs text-gray-400">Mínimo: ${produto.estoqueMinimo}</p>
+        <p class="text-xs text-gray-400">Mínimo: ${formatarNumero(produto.estoqueMinimo)}</p>
       </div>
       <div class="flex items-center gap-2">
         <button class="btn-decrementar w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 font-bold" data-id="${produto.id}">−</button>
-        <input type="number" min="0" step="1" value="${produto.estoqueAtual}"
+        <input type="text" inputmode="decimal" value="${formatarNumero(produto.estoqueAtual)}"
           data-id="${produto.id}" class="input-contagem w-20 text-center rounded-lg border-gray-300 border px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
         <button class="btn-incrementar w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 font-bold" data-id="${produto.id}">+</button>
       </div>
@@ -235,7 +238,7 @@ function renderizarContagem() {
   });
 
   listaContagem.querySelectorAll('.input-contagem').forEach((input) => {
-    input.addEventListener('change', () => atualizarEstoqueAtual(input.dataset.id, Number(input.value)));
+    input.addEventListener('change', () => atualizarEstoqueAtual(input.dataset.id, paraNumero(input.value)));
   });
   listaContagem.querySelectorAll('.btn-incrementar').forEach((btn) => {
     btn.addEventListener('click', () => ajustarEstoqueAtual(btn.dataset.id, 1));
@@ -247,8 +250,12 @@ function renderizarContagem() {
 
 function atualizarEstoqueAtual(id, novoValor) {
   const produto = produtos.find((p) => p.id === id);
-  if (!produto || Number.isNaN(novoValor) || novoValor < 0) return;
-  produto.estoqueAtual = novoValor;
+  if (!produto || Number.isNaN(novoValor) || novoValor < 0) {
+    mostrarToast('Valor inválido. Use números como 4 ou 4,3.');
+    renderizarContagem();
+    return;
+  }
+  produto.estoqueAtual = arredondar2(novoValor);
   salvarProdutos(produtos);
   mostrarToast(`${produto.nome} atualizado.`);
 }
@@ -256,7 +263,7 @@ function atualizarEstoqueAtual(id, novoValor) {
 function ajustarEstoqueAtual(id, delta) {
   const produto = produtos.find((p) => p.id === id);
   if (!produto) return;
-  produto.estoqueAtual = Math.max(0, produto.estoqueAtual + delta);
+  produto.estoqueAtual = arredondar2(Math.max(0, produto.estoqueAtual + delta));
   salvarProdutos(produtos);
   renderizarContagem();
 }
@@ -511,7 +518,7 @@ function renderizarRevisaoOCR() {
         </select>
       </td>
       <td class="py-2 pr-2">
-        <input type="number" min="0" step="0.01" value="${item.quantidade}" data-index="${index}"
+        <input type="text" inputmode="decimal" value="${formatarNumero(item.quantidade)}" data-index="${index}"
           class="input-quantidade-ocr w-24 rounded-lg border-gray-300 border px-2 py-1 text-sm" />
       </td>
       <td class="py-2 pr-2 text-right">
@@ -537,7 +544,7 @@ function renderizarRevisaoOCR() {
   tabelaRevisaoOcr.querySelectorAll('.input-quantidade-ocr').forEach((input) => {
     input.addEventListener('change', () => {
       const idx = Number(input.dataset.index);
-      itensExtraidos[idx].quantidade = Number(input.value) || 0;
+      itensExtraidos[idx].quantidade = paraNumero(input.value) || 0;
     });
   });
 
@@ -566,8 +573,8 @@ function confirmarEntradaEstoque() {
   itensValidos.forEach((item) => {
     const produto = produtos.find((p) => p.id === item.produtoId);
     if (!produto) return;
-    produto.estoqueAtual += item.quantidade;
-    produto.comprasNotas = (produto.comprasNotas || 0) + item.quantidade;
+    produto.estoqueAtual = arredondar2(produto.estoqueAtual + item.quantidade);
+    produto.comprasNotas = arredondar2((produto.comprasNotas || 0) + item.quantidade);
     itensParaHistorico.push({ produtoId: produto.id, nome: produto.nome, quantidade: item.quantidade });
   });
 
@@ -610,7 +617,7 @@ function renderizarHistoricoNotas() {
       <td class="py-2 pr-2">${new Date(nota.data).toLocaleString('pt-BR')}</td>
       <td class="py-2 pr-2">${escapeHtml(nota.arquivoNome)}</td>
       <td class="py-2 pr-2">${nota.itens.length}</td>
-      <td class="py-2 pr-2">${totalUnidades}</td>
+      <td class="py-2 pr-2">${formatarNumero(totalUnidades)}</td>
     `;
     corpo.appendChild(tr);
   });
@@ -631,7 +638,7 @@ function gerarListaCompras() {
     .filter((p) => p.estoqueAtual < p.estoqueMinimo)
     .map((p) => ({
       ...p,
-      comprar: p.estoqueMinimo - p.estoqueAtual,
+      comprar: arredondar2(p.estoqueMinimo - p.estoqueAtual),
     }));
 
   renderizarListaCompras();
@@ -650,9 +657,9 @@ function renderizarListaCompras() {
     tr.className = 'border-b last:border-0';
     tr.innerHTML = `
       <td class="py-2 pr-2 font-medium">${escapeHtml(item.nome)}</td>
-      <td class="py-2 pr-2">${item.estoqueAtual}</td>
-      <td class="py-2 pr-2">${item.estoqueMinimo}</td>
-      <td class="py-2 pr-2 font-semibold text-red-600">${item.comprar}</td>
+      <td class="py-2 pr-2">${formatarNumero(item.estoqueAtual)}</td>
+      <td class="py-2 pr-2">${formatarNumero(item.estoqueMinimo)}</td>
+      <td class="py-2 pr-2 font-semibold text-red-600">${formatarNumero(item.comprar)}</td>
     `;
     tabelaListaCompras.appendChild(tr);
   });
@@ -661,7 +668,7 @@ function renderizarListaCompras() {
 function montarTextoListaCompras() {
   if (ultimaListaCompras.length === 0) return '';
   const linhas = ultimaListaCompras.map(
-    (item) => `- ${item.nome}: ${item.comprar} un. (atual: ${item.estoqueAtual} / mínimo: ${item.estoqueMinimo})`
+    (item) => `- ${item.nome}: ${formatarNumero(item.comprar)} un. (atual: ${formatarNumero(item.estoqueAtual)} / mínimo: ${formatarNumero(item.estoqueMinimo)})`
   );
   const dataHoje = new Date().toLocaleDateString('pt-BR');
   return `🛒 Lista de Compras - ${dataHoje}\n\n${linhas.join('\n')}`;
@@ -723,7 +730,7 @@ function renderizarRelatorio() {
   const linhas = produtos
     .map((p) => ({
       ...p,
-      consumo: (p.estoqueInicial || 0) + (p.comprasNotas || 0) - p.estoqueAtual,
+      consumo: arredondar2((p.estoqueInicial || 0) + (p.comprasNotas || 0) - p.estoqueAtual),
     }))
     .sort((a, b) => b.consumo - a.consumo);
 
@@ -738,12 +745,12 @@ function renderizarRelatorio() {
     tr.className = 'border-b last:border-0';
     tr.innerHTML = `
       <td class="py-2 pr-2 font-medium">${escapeHtml(item.nome)}</td>
-      <td class="py-2 pr-2">${item.estoqueInicial || 0}</td>
-      <td class="py-2 pr-2">${item.comprasNotas || 0}</td>
-      <td class="py-2 pr-2">${item.estoqueAtual}</td>
+      <td class="py-2 pr-2">${formatarNumero(item.estoqueInicial || 0)}</td>
+      <td class="py-2 pr-2">${formatarNumero(item.comprasNotas || 0)}</td>
+      <td class="py-2 pr-2">${formatarNumero(item.estoqueAtual)}</td>
       <td class="py-2 pr-2">
         <div class="flex items-center gap-2">
-          <span class="font-semibold ${corTexto} w-10 shrink-0">${item.consumo}</span>
+          <span class="font-semibold ${corTexto} w-10 shrink-0">${formatarNumero(item.consumo)}</span>
           <div class="flex-1 bg-gray-100 rounded h-2 min-w-[60px]">
             <div class="${corBarra} h-2 rounded" style="width:${larguraBarra}%"></div>
           </div>
@@ -759,6 +766,23 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+/** Converte texto digitado pelo usuário (aceita vírgula ou ponto como separador decimal) em número. */
+function paraNumero(valor) {
+  if (typeof valor === 'number') return valor;
+  const numero = parseFloat(String(valor).trim().replace(',', '.'));
+  return numero;
+}
+
+/** Evita erros de ponto flutuante (ex: 0.1 + 0.2) arredondando para 2 casas decimais. */
+function arredondar2(valor) {
+  return Math.round((valor + Number.EPSILON) * 100) / 100;
+}
+
+/** Formata um número para exibição no padrão brasileiro (vírgula decimal), ex: 4.3 -> "4,3". */
+function formatarNumero(valor) {
+  return arredondar2(valor || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 }
 
 // ===================== Inicialização =====================
