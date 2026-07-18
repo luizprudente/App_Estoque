@@ -120,6 +120,9 @@ const inputMinimo = document.getElementById('input-minimo');
 const tabelaCadastro = document.getElementById('tabela-cadastro');
 const cadastroVazio = document.getElementById('cadastro-vazio');
 
+selecionarConteudoAoFocar(inputAtual);
+selecionarConteudoAoFocar(inputMinimo);
+
 formProduto.addEventListener('submit', (e) => {
   e.preventDefault();
 
@@ -239,6 +242,7 @@ function renderizarContagem() {
 
   listaContagem.querySelectorAll('.input-contagem').forEach((input) => {
     input.addEventListener('change', () => atualizarEstoqueAtual(input.dataset.id, paraNumero(input.value)));
+    selecionarConteudoAoFocar(input);
   });
   listaContagem.querySelectorAll('.btn-incrementar').forEach((btn) => {
     btn.addEventListener('click', () => ajustarEstoqueAtual(btn.dataset.id, 1));
@@ -546,6 +550,7 @@ function renderizarRevisaoOCR() {
       const idx = Number(input.dataset.index);
       itensExtraidos[idx].quantidade = paraNumero(input.value) || 0;
     });
+    selecionarConteudoAoFocar(input);
   });
 
   tabelaRevisaoOcr.querySelectorAll('.btn-remover-item-ocr').forEach((btn) => {
@@ -783,6 +788,11 @@ function arredondar2(valor) {
 /** Formata um número para exibição no padrão brasileiro (vírgula decimal), ex: 4.3 -> "4,3". */
 function formatarNumero(valor) {
   return arredondar2(valor || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+}
+
+/** Seleciona todo o conteúdo do campo ao focar, para digitar por cima sem precisar apagar antes (útil no celular). */
+function selecionarConteudoAoFocar(input) {
+  input.addEventListener('focus', () => input.select());
 }
 
 // ===================== Inicialização =====================
