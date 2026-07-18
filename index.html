@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Contagem de Estoque e Lista de Compras</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen">
-  <div class="max-w-4xl mx-auto px-4 py-6">
+  <div class="max-w-5xl mx-auto px-4 py-6">
 
     <!-- Cabeçalho -->
     <header class="mb-6">
       <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">📦 Contagem de Estoque e Lista de Compras</h1>
-      <p class="text-sm text-gray-500 mt-1">Cadastre produtos, faça a contagem diária e gere sua lista de compras automaticamente.</p>
+      <p class="text-sm text-gray-500 mt-1">Cadastre produtos, leia notas de compra, faça a contagem diária e acompanhe o consumo.</p>
     </header>
 
     <!-- Navegação por abas -->
@@ -23,8 +24,14 @@
       <button data-tab="contagem" class="tab-btn px-4 py-2 rounded-lg font-medium bg-white text-gray-700 hover:bg-gray-50 shadow">
         Contagem do Dia
       </button>
+      <button data-tab="entrada" class="tab-btn px-4 py-2 rounded-lg font-medium bg-white text-gray-700 hover:bg-gray-50 shadow">
+        Entrada de Estoque (Notas)
+      </button>
       <button data-tab="lista" class="tab-btn px-4 py-2 rounded-lg font-medium bg-white text-gray-700 hover:bg-gray-50 shadow">
         Lista de Compras
+      </button>
+      <button data-tab="relatorio" class="tab-btn px-4 py-2 rounded-lg font-medium bg-white text-gray-700 hover:bg-gray-50 shadow">
+        Relatório de Consumo
       </button>
     </nav>
 
@@ -89,6 +96,90 @@
       </div>
     </section>
 
+    <!-- ===================== ABA: ENTRADA DE ESTOQUE (NOTAS/OCR) ===================== -->
+    <section id="tab-entrada" class="tab-panel space-y-6 hidden">
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-lg font-semibold mb-1">Ler Nota / Cupom de Compra</h2>
+        <p class="text-sm text-gray-500 mb-4">
+          Envie uma foto ou PDF do cupom fiscal. O app tenta identificar os itens e as quantidades automaticamente (OCR),
+          mas <strong>sempre confira e ajuste</strong> antes de confirmar — a leitura automática pode errar.
+        </p>
+
+        <input type="file" id="input-arquivo-nota" accept="image/png,image/jpeg,image/webp,application/pdf" class="hidden" />
+        <div id="dropzone" class="dropzone">
+          <p class="text-gray-500 text-sm">📎 Clique ou arraste aqui a imagem (JPG/PNG) ou PDF do cupom</p>
+          <p id="nome-arquivo-selecionado" class="text-sm font-medium text-blue-600 mt-2 hidden"></p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 mt-4">
+          <button id="btn-processar-nota" disabled
+            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-5 py-2 rounded-lg shadow transition">
+            🔍 Processar Nota (OCR)
+          </button>
+          <button id="btn-adicionar-item-manual"
+            class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium px-4 py-2 rounded-lg shadow-sm transition">
+            + Adicionar item manualmente
+          </button>
+        </div>
+
+        <div id="ocr-progresso-container" class="mt-4 hidden">
+          <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
+            <span class="spinner"></span>
+            <span>Lendo nota, aguarde…</span>
+            <span id="ocr-progresso-texto" class="ml-auto">0%</span>
+          </div>
+          <div class="w-full bg-gray-100 rounded h-2">
+            <div id="ocr-progresso-barra" class="bg-blue-500 h-2 rounded" style="width:0%"></div>
+          </div>
+        </div>
+
+        <details class="mt-4">
+          <summary class="text-xs text-gray-400 cursor-pointer">Ver texto bruto reconhecido pelo OCR</summary>
+          <pre id="texto-ocr-bruto" class="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 mt-2"></pre>
+        </details>
+      </div>
+
+      <div id="secao-revisao-ocr" class="bg-white rounded-xl shadow p-5 hidden">
+        <h2 class="text-lg font-semibold mb-1">Confira os Itens Identificados</h2>
+        <p class="text-sm text-gray-500 mb-4">Associe cada linha a um produto cadastrado e ajuste a quantidade antes de confirmar.</p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 border-b">
+                <th class="py-2 pr-2">Descrição extraída</th>
+                <th class="py-2 pr-2">Produto</th>
+                <th class="py-2 pr-2">Quantidade</th>
+                <th class="py-2 pr-2 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-revisao-ocr"></tbody>
+          </table>
+        </div>
+        <button id="btn-confirmar-entrada"
+          class="mt-4 bg-green-600 hover:bg-green-700 text-white font-medium px-5 py-2 rounded-lg shadow transition">
+          ✅ Confirmar Entrada no Estoque
+        </button>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-lg font-semibold mb-4">Notas Processadas Recentemente</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 border-b">
+                <th class="py-2 pr-2">Data</th>
+                <th class="py-2 pr-2">Arquivo</th>
+                <th class="py-2 pr-2">Itens</th>
+                <th class="py-2 pr-2">Unidades</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-historico-notas"></tbody>
+          </table>
+          <p id="historico-notas-vazio" class="text-gray-400 text-sm py-4 hidden">Nenhuma nota processada ainda.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- ===================== ABA: LISTA DE COMPRAS ===================== -->
     <section id="tab-lista" class="tab-panel space-y-4 hidden">
       <div class="bg-white rounded-xl shadow p-5">
@@ -128,11 +219,47 @@
       </div>
     </section>
 
+    <!-- ===================== ABA: RELATÓRIO DE CONSUMO ===================== -->
+    <section id="tab-relatorio" class="tab-panel space-y-4 hidden">
+      <div class="bg-white rounded-xl shadow p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-1">
+          <h2 class="text-lg font-semibold">Relatório de Consumo</h2>
+          <button id="btn-novo-periodo"
+            class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg shadow-sm transition">
+            ↻ Iniciar Novo Período
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 mb-4">Período iniciado em: <span id="periodo-inicio" class="font-medium"></span></p>
+        <p class="text-sm text-gray-500 mb-4">
+          Consumo = Estoque Inicial do período + Compras registradas por notas − Contagem física atual.
+          Ordenado do maior para o menor consumo.
+        </p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 border-b">
+                <th class="py-2 pr-2">Produto</th>
+                <th class="py-2 pr-2">Estoque Inicial</th>
+                <th class="py-2 pr-2">Compras (Notas)</th>
+                <th class="py-2 pr-2">Estoque Atual</th>
+                <th class="py-2 pr-2">Consumo</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-relatorio"></tbody>
+          </table>
+          <p id="relatorio-vazio" class="text-gray-400 text-sm py-4 hidden">Cadastre produtos para ver o relatório de consumo.</p>
+        </div>
+      </div>
+    </section>
+
   </div>
 
   <!-- Toast simples de feedback -->
   <div id="toast" class="fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg opacity-0 pointer-events-none transition-opacity"></div>
 
+  <!-- OCR (imagem) e renderização de PDF, usados na aba "Entrada de Estoque" -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

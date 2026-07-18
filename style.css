@@ -1,0 +1,52 @@
+/* Estilos complementares ao Tailwind (CDN) */
+
+body {
+  font-feature-settings: "tnum";
+}
+
+/* Área de upload de notas/cupons (drag & drop) */
+.dropzone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  background-color: #f8fafc;
+}
+
+.dropzone:hover {
+  border-color: #94a3b8;
+}
+
+.dropzone.dragover {
+  border-color: #2563eb;
+  background-color: #eff6ff;
+}
+
+#ocr-progresso-barra {
+  transition: width 0.2s ease;
+}
+
+@keyframes girar {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: girar 0.6s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Texto bruto extraído pelo OCR, para conferência */
+#texto-ocr-bruto {
+  max-height: 10rem;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
