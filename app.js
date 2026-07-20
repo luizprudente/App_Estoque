@@ -97,6 +97,7 @@ function ativarAba(nomeAba) {
     panel.classList.toggle('hidden', panel.id !== `tab-${nomeAba}`);
   });
 
+  if (nomeAba === 'cadastro') renderizarCadastro();
   if (nomeAba === 'contagem') renderizarContagem();
   if (nomeAba === 'entrada') renderizarHistoricoNotas();
   if (nomeAba === 'relatorio') renderizarRelatorio();
@@ -174,6 +175,8 @@ function criarProdutoRapido(nomeSugerido) {
   return novoProduto.id;
 }
 
+let produtoEmEdicaoId = null;
+
 function renderizarCadastro() {
   tabelaCadastro.innerHTML = '';
   cadastroVazio.classList.toggle('hidden', produtos.length > 0);
@@ -181,17 +184,62 @@ function renderizarCadastro() {
   produtos.forEach((produto) => {
     const tr = document.createElement('tr');
     tr.className = 'border-b last:border-0';
+
+    if (produto.id === produtoEmEdicaoId) {
+      tr.innerHTML = `
+        <td class="py-2 pr-2">
+          <input type="text" value="${escapeHtml(produto.nome)}" data-campo="nome"
+            class="input-edicao-cadastro w-full rounded-lg border-gray-300 border px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </td>
+        <td class="py-2 pr-2">
+          <input type="text" inputmode="decimal" value="${formatarNumero(produto.estoqueAtual)}" data-campo="atual"
+            class="input-edicao-cadastro w-24 rounded-lg border-gray-300 border px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </td>
+        <td class="py-2 pr-2">
+          <input type="text" inputmode="decimal" value="${formatarNumero(produto.estoqueMinimo)}" data-campo="minimo"
+            class="input-edicao-cadastro w-24 rounded-lg border-gray-300 border px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </td>
+        <td class="py-2 pr-2 text-right whitespace-nowrap">
+          <button class="text-green-600 hover:text-green-800 text-xs font-medium mr-2" data-salvar="${produto.id}">Salvar</button>
+          <button class="text-gray-500 hover:text-gray-700 text-xs font-medium" data-cancelar>Cancelar</button>
+        </td>
+      `;
+      tabelaCadastro.appendChild(tr);
+      return;
+    }
+
     tr.innerHTML = `
       <td class="py-2 pr-2 font-medium">${escapeHtml(produto.nome)}</td>
       <td class="py-2 pr-2">${formatarNumero(produto.estoqueAtual)}</td>
       <td class="py-2 pr-2">${formatarNumero(produto.estoqueMinimo)}</td>
-      <td class="py-2 pr-2 text-right">
+      <td class="py-2 pr-2 text-right whitespace-nowrap">
+        <button class="text-blue-600 hover:text-blue-800 text-xs font-medium mr-2" data-editar="${produto.id}">
+          Editar
+        </button>
         <button class="text-red-500 hover:text-red-700 text-xs font-medium" data-excluir="${produto.id}">
           Excluir
         </button>
       </td>
     `;
     tabelaCadastro.appendChild(tr);
+  });
+
+  tabelaCadastro.querySelectorAll('[data-editar]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      produtoEmEdicaoId = btn.dataset.editar;
+      renderizarCadastro();
+    });
+  });
+
+  tabelaCadastro.querySelectorAll('[data-cancelar]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      produtoEmEdicaoId = null;
+      renderizarCadastro();
+    });
+  });
+
+  tabelaCadastro.querySelectorAll('[data-salvar]').forEach((btn) => {
+    btn.addEventListener('click', () => salvarEdicaoProduto(btn.dataset.salvar));
   });
 
   tabelaCadastro.querySelectorAll('[data-excluir]').forEach((btn) => {
@@ -204,6 +252,31 @@ function renderizarCadastro() {
       mostrarToast('Produto excluído.');
     });
   });
+}
+
+function salvarEdicaoProduto(id) {
+  const produto = produtos.find((p) => p.id === id);
+  if (!produto) return;
+
+  const linha = tabelaCadastro.querySelector(`[data-salvar="${id}"]`).closest('tr');
+  const nome = linha.querySelector('[data-campo="nome"]').value.trim();
+  const estoqueAtual = paraNumero(linha.querySelector('[data-campo="atual"]').value);
+  const estoqueMinimo = paraNumero(linha.querySelector('[data-campo="minimo"]').value);
+
+  if (!nome || Number.isNaN(estoqueAtual) || Number.isNaN(estoqueMinimo) || estoqueAtual < 0 || estoqueMinimo < 0) {
+    mostrarToast('Preencha o nome e valores válidos (ex: 4 ou 4,3).');
+    return;
+  }
+
+  produto.nome = nome;
+  produto.estoqueAtual = arredondar2(estoqueAtual);
+  produto.estoqueMinimo = arredondar2(estoqueMinimo);
+
+  salvarProdutos(produtos);
+  produtoEmEdicaoId = null;
+  renderizarCadastro();
+  renderizarContagem();
+  mostrarToast('Produto atualizado!');
 }
 
 // ===================== Contagem do Dia =====================
@@ -261,6 +334,7 @@ function atualizarEstoqueAtual(id, novoValor) {
   }
   produto.estoqueAtual = arredondar2(novoValor);
   salvarProdutos(produtos);
+  renderizarCadastro();
   mostrarToast(`${produto.nome} atualizado.`);
 }
 
@@ -270,6 +344,7 @@ function ajustarEstoqueAtual(id, delta) {
   produto.estoqueAtual = arredondar2(Math.max(0, produto.estoqueAtual + delta));
   salvarProdutos(produtos);
   renderizarContagem();
+  renderizarCadastro();
 }
 
 // ===================== Entrada de Estoque por Notas (OCR) =====================
