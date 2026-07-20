@@ -316,10 +316,14 @@ function definirArquivoSelecionado(arquivo) {
 
 btnProcessarNota.addEventListener('click', processarArquivoOCR);
 
+const MAX_PAGINAS_PDF = 5; // limite de seguranca p/ nao travar o navegador em PDFs muito longos
+
 /**
- * Executa OCR sobre o arquivo selecionado (imagem via Tesseract.js; PDF renderizado
- * para canvas com pdf.js antes do OCR) e tenta extrair itens + quantidades.
- * Isso roda inteiramente no navegador, sem enviar a nota para nenhum servidor.
+ * Executa OCR sobre o arquivo selecionado (imagem via Tesseract.js; PDF com todas as
+ * páginas — até MAX_PAGINAS_PDF — renderizadas para canvas com pdf.js antes do OCR)
+ * e tenta extrair itens + quantidades. Roda inteiramente no navegador, sem enviar a
+ * nota para nenhum servidor. Cada imagem passa por um pré-processamento (escala de
+ * cinza + contraste) que reduz bastante os erros de leitura em fotos de cupom.
  */
 async function processarArquivoOCR() {
   if (!arquivoSelecionado) return;
@@ -332,24 +336,30 @@ async function processarArquivoOCR() {
   mostrarProgressoOCR(true);
 
   try {
-    let fonteImagem = arquivoSelecionado;
+    const fontesImagem =
+      arquivoSelecionado.type === 'application/pdf'
+        ? await renderizarPaginasPDF(arquivoSelecionado)
+        : [arquivoSelecionado];
 
-    if (arquivoSelecionado.type === 'application/pdf') {
-      fonteImagem = await renderizarPrimeiraPaginaPDF(arquivoSelecionado);
+    let textoCompleto = '';
+
+    for (let i = 0; i < fontesImagem.length; i++) {
+      const imagemPreparada = await prepararImagemParaOCR(fontesImagem[i]).catch(() => fontesImagem[i]);
+
+      const resultado = await Tesseract.recognize(imagemPreparada, 'por', {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            atualizarProgressoOCR(Math.round(((i + m.progress) / fontesImagem.length) * 100));
+          }
+        },
+      });
+
+      textoCompleto += (textoCompleto ? '\n' : '') + (resultado.data.text || '');
     }
 
-    const resultado = await Tesseract.recognize(fonteImagem, 'por', {
-      logger: (m) => {
-        if (m.status === 'recognizing text') {
-          atualizarProgressoOCR(Math.round(m.progress * 100));
-        }
-      },
-    });
+    textoOcrBrutoEl.textContent = textoCompleto;
 
-    const textoExtraido = resultado.data.text || '';
-    textoOcrBrutoEl.textContent = textoExtraido;
-
-    itensExtraidos = parsearItensDoTexto(textoExtraido).map((item) => ({
+    itensExtraidos = parsearItensDoTexto(textoCompleto).map((item) => ({
       descricao: item.descricao,
       quantidade: item.quantidade,
       produtoId: encontrarProdutoCorrespondente(item.descricao),
@@ -370,22 +380,59 @@ async function processarArquivoOCR() {
   }
 }
 
-/** Renderiza a 1ª página de um PDF em um <canvas>, usado como entrada para o OCR. */
-async function renderizarPrimeiraPaginaPDF(arquivo) {
+/** Renderiza cada página de um PDF (até MAX_PAGINAS_PDF) em um <canvas>, usado como entrada para o OCR. */
+async function renderizarPaginasPDF(arquivo) {
   if (typeof pdfjsLib === 'undefined') {
     throw new Error('pdf.js não carregado');
   }
   const bufferArray = await arquivo.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: bufferArray }).promise;
-  const pagina = await pdf.getPage(1);
-  const viewport = pagina.getViewport({ scale: 2 });
+  const totalPaginas = Math.min(pdf.numPages, MAX_PAGINAS_PDF);
+  const canvases = [];
+
+  for (let i = 1; i <= totalPaginas; i++) {
+    const pagina = await pdf.getPage(i);
+    const viewport = pagina.getViewport({ scale: 2 });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const contexto = canvas.getContext('2d');
+
+    await pagina.render({ canvasContext: contexto, viewport }).promise;
+    canvases.push(canvas);
+  }
+
+  return canvases;
+}
+
+/**
+ * Converte a imagem para escala de cinza e aumenta o contraste antes do OCR.
+ * Fotos de cupom (papel térmico, iluminação ruim) ganham bastante precisão com isso.
+ * Também amplia imagens pequenas, já que o Tesseract lê melhor em resolução maior.
+ */
+async function prepararImagemParaOCR(fonte) {
+  const bitmap = await createImageBitmap(fonte);
+  const larguraMinima = 1600;
+  const escala = bitmap.width < larguraMinima ? Math.min(3, larguraMinima / bitmap.width) : 1;
 
   const canvas = document.createElement('canvas');
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
-  const contexto = canvas.getContext('2d');
+  canvas.width = Math.round(bitmap.width * escala);
+  canvas.height = Math.round(bitmap.height * escala);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 
-  await pagina.render({ canvasContext: contexto, viewport }).promise;
+  const dados = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = dados.data;
+  const contraste = 1.6;
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    const cinza = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+    const valor = Math.max(0, Math.min(255, (cinza - 128) * contraste + 128));
+    pixels[i] = pixels[i + 1] = pixels[i + 2] = valor;
+  }
+
+  ctx.putImageData(dados, 0, 0);
   return canvas;
 }
 
@@ -400,10 +447,26 @@ function atualizarProgressoOCR(percentual) {
   ocrProgressoTexto.textContent = `${percentual}%`;
 }
 
+// Palavras/trechos de linhas de cabeçalho, totais e rodapé que nunca são um item comprado.
+// Não é ancorado ao início da linha de propósito: ruído do OCR (aspas tipográficas, barras
+// verticais de coluna, etc.) costuma sobrar antes da palavra-chave, o que quebraria um "^".
+const ignorarLinha =
+  /(cnpj|cpf|\bie\b|total|subtotal|troco|desconto|forma de pagamento|cupom fiscal|documento auxiliar|nota fiscal|consumidor|endere[cç]o|telefone|item\s*.{0,3}cod|valor a pagar|valor total|valor pago|qtd\.?\s*total|autoriza|via cliente|bandeira|parcela|tributos|incidentes|lei federal|estadual|ibpt|fonte|consulte|chave de acesso|card\s|rede:|loja|pdv|seq[:=]|nfc-e|protocolo)/i;
+
 /**
- * Heurística básica para reconhecer linhas de cupom fiscal no formato
- * "QTD UN DESCRIÇÃO" ou "DESCRIÇÃO ... QTD UN". Cupons variam muito de layout,
- * por isso o resultado deve sempre ser conferido na tela de revisão.
+ * Heurística básica para reconhecer itens de cupom fiscal. Tenta duas estratégias:
+ *
+ * 1) Item em DUAS linhas (padrão da Nota Fiscal de Consumidor Eletrônica — NFC-e —
+ *    usado pela grande maioria dos supermercados/varejo no Brasil): a descrição fica
+ *    numa linha e a quantidade em uma linha própria logo abaixo, ex:
+ *      "002 7896030521362 REQ TIROLEZ 1,5kg"
+ *      "2,000 Un x 48,49          96,98"
+ *
+ * 2) Item em UMA linha só (formato mais simples, ex: "2 UN ARROZ 5KG" ou
+ *    "ARROZ 5KG   2 UN"), usado como reforço para o que sobrar.
+ *
+ * Cupons variam muito de layout e o OCR erra caracteres, então o resultado deve
+ * sempre ser conferido na tela de revisão antes de confirmar a entrada no estoque.
  */
 function parsearItensDoTexto(texto) {
   const linhas = texto
@@ -411,7 +474,30 @@ function parsearItensDoTexto(texto) {
     .map((l) => l.trim())
     .filter(Boolean);
 
-  const ignorarLinha = /^(cnpj|cpf|total|subtotal|troco|desconto|forma de pagamento|cupom fiscal|extrato|qtde total|valor|data|hora|item\s)/i;
+  const usada = new Array(linhas.length).fill(false);
+  const itens = [];
+
+  // Linha "só quantidade", ex: "4,014 Kg x 45,90 184,24" ou "2,000 Un «x 48,49 96,98"
+  // (o "«" e afins são ruído comum do OCR antes do "x"). Aceita até ~15 caracteres de
+  // ruído antes do número (código de barras cortado, barras de coluna, etc.).
+  const padraoLinhaQtd = /^.{0,15}?(\d{1,3}[.,]\d{2,3})\s*([A-Za-zÀ-ÿ]{1,4})/;
+
+  // Passo 1: item em duas linhas — descrição na linha anterior + quantidade na linha seguinte.
+  linhas.forEach((linha, i) => {
+    if (i === 0 || usada[i] || ignorarLinha.test(linha)) return;
+
+    const matchQtd = linha.match(padraoLinhaQtd);
+    if (!matchQtd) return;
+
+    const linhaAnterior = linhas[i - 1];
+    if (usada[i - 1] || ignorarLinha.test(linhaAnterior)) return;
+    if (!/[A-Za-zÀ-ÿ]{3,}/.test(linhaAnterior)) return; // precisa ter texto, não só números
+
+    itens.push({ quantidade: normalizarNumero(matchQtd[1]), descricao: limparDescricao(linhaAnterior) });
+    usada[i - 1] = true;
+    usada[i] = true;
+  });
+
   // Linha com código do item na frente, ex: "001 2 UN ARROZ TIO JOAO 5KG   25,00   50,00"
   const padraoComCodigo = /^\d+\s+(\d+(?:[.,]\d+)?)\s*(?:un|und|unid|x|cx|pc|kg|lt)\b\.?\s*(.+)/i;
   // Ex: "2 UN ARROZ TIO JOAO 5KG"
@@ -419,10 +505,9 @@ function parsearItensDoTexto(texto) {
   // Ex: "ARROZ TIO JOAO 5KG   3 UN"
   const padraoQtdDepois = /^(.{3,60}?)\s+(\d+(?:[.,]\d+)?)\s*(?:un|und|unid|x|cx|pc|kg|lt)\b/i;
 
-  const itens = [];
-
-  linhas.forEach((linha) => {
-    if (ignorarLinha.test(linha)) return;
+  // Passo 2: linhas que sobraram (não usadas no passo 1), tenta os padrões de linha única.
+  linhas.forEach((linha, i) => {
+    if (usada[i] || ignorarLinha.test(linha)) return;
 
     let match = linha.match(padraoComCodigo);
     if (match) {
@@ -451,9 +536,10 @@ function normalizarNumero(str) {
 
 function limparDescricao(str) {
   return str
+    .replace(/^[|[\]"'“”.\s]*\d+(?:\s+\d+)?\s+/, '') // remove código do item + código de barras/interno no início
     .replace(/\d+[.,]\d{2}\b/g, '') // remove valores em R$, ex: 25,00
-    .replace(/\d{6,}/g, '') // remove códigos de barras/produto longos
-    .replace(/^\d+\s+/, '') // remove código de item residual no início
+    .replace(/\d{6,}/g, '') // remove códigos de barras/produto longos residuais
+    .replace(/[|[\]"'“”]/g, ' ') // remove ruído de OCR (colunas, aspas tipográficas)
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
