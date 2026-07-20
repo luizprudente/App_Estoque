@@ -25,7 +25,7 @@
         Contagem do Dia
       </button>
       <button data-tab="entrada" class="tab-btn px-4 py-2 rounded-lg font-medium bg-white text-gray-700 hover:bg-gray-50 shadow">
-        Entrada de Estoque (Notas)
+        Entrada de Estoque (Notas/Planilhas)
       </button>
       <button data-tab="lista" class="tab-btn px-4 py-2 rounded-lg font-medium bg-white text-gray-700 hover:bg-gray-50 shadow">
         Lista de Compras
@@ -96,25 +96,33 @@
       </div>
     </section>
 
-    <!-- ===================== ABA: ENTRADA DE ESTOQUE (NOTAS/OCR) ===================== -->
+    <!-- ===================== ABA: ENTRADA DE ESTOQUE (NOTAS/OCR/PLANILHAS) ===================== -->
     <section id="tab-entrada" class="tab-panel space-y-6 hidden">
       <div class="bg-white rounded-xl shadow p-5">
-        <h2 class="text-lg font-semibold mb-1">Ler Nota / Cupom de Compra</h2>
-        <p class="text-sm text-gray-500 mb-4">
-          Envie uma foto ou PDF do cupom fiscal. O app tenta identificar os itens e as quantidades automaticamente (OCR),
-          mas <strong>sempre confira e ajuste</strong> antes de confirmar — a leitura automática pode errar.
+        <h2 class="text-lg font-semibold mb-1">Ler Nota, Cupom ou Planilha de Compras</h2>
+        <p class="text-sm text-gray-500 mb-2">
+          Envie uma foto/PDF do cupom fiscal (o app tenta ler os itens por OCR) <strong>ou</strong> uma planilha
+          (.xlsx, .xls ou .csv) do Excel ou exportada do Google Sheets (Arquivo → Fazer Download). Em qualquer caso,
+          <strong>sempre confira e ajuste</strong> antes de confirmar — a leitura automática pode errar.
+        </p>
+        <p class="text-xs text-gray-400 mb-4">
+          Planilha: use colunas "Produto" e "Quantidade" (em qualquer ordem) — ou, sem cabeçalho, coloque o produto na
+          1ª coluna e a quantidade na 2ª.
+          <a id="link-modelo-planilha" href="#" class="text-blue-600 hover:underline">Baixar modelo (.csv)</a>
         </p>
 
-        <input type="file" id="input-arquivo-nota" accept="image/png,image/jpeg,image/webp,application/pdf" class="hidden" />
+        <input type="file" id="input-arquivo-nota"
+          accept="image/png,image/jpeg,image/webp,application/pdf,.csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          class="hidden" />
         <div id="dropzone" class="dropzone">
-          <p class="text-gray-500 text-sm">📎 Clique ou arraste aqui a imagem (JPG/PNG) ou PDF do cupom</p>
+          <p class="text-gray-500 text-sm">📎 Clique ou arraste aqui a imagem (JPG/PNG), PDF do cupom ou planilha (XLSX/XLS/CSV)</p>
           <p id="nome-arquivo-selecionado" class="text-sm font-medium text-blue-600 mt-2 hidden"></p>
         </div>
 
         <div class="flex flex-wrap items-center gap-3 mt-4">
           <button id="btn-processar-nota" disabled
             class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-5 py-2 rounded-lg shadow transition">
-            🔍 Processar Nota (OCR)
+            🔍 Processar Arquivo
           </button>
           <button id="btn-adicionar-item-manual"
             class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium px-4 py-2 rounded-lg shadow-sm transition">
@@ -125,7 +133,7 @@
         <div id="ocr-progresso-container" class="mt-4 hidden">
           <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
             <span class="spinner"></span>
-            <span>Lendo nota, aguarde…</span>
+            <span id="ocr-progresso-mensagem">Lendo arquivo, aguarde…</span>
             <span id="ocr-progresso-texto" class="ml-auto">0%</span>
           </div>
           <div class="w-full bg-gray-100 rounded h-2">
@@ -134,7 +142,7 @@
         </div>
 
         <details class="mt-4">
-          <summary class="text-xs text-gray-400 cursor-pointer">Ver texto bruto reconhecido pelo OCR</summary>
+          <summary class="text-xs text-gray-400 cursor-pointer">Ver texto bruto reconhecido pelo OCR / resumo da leitura</summary>
           <pre id="texto-ocr-bruto" class="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 mt-2"></pre>
         </details>
       </div>
@@ -257,9 +265,10 @@
   <!-- Toast simples de feedback -->
   <div id="toast" class="fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg opacity-0 pointer-events-none transition-opacity"></div>
 
-  <!-- OCR (imagem) e renderização de PDF, usados na aba "Entrada de Estoque" -->
+  <!-- OCR (imagem), renderização de PDF e leitura de planilhas, usados na aba "Entrada de Estoque" -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

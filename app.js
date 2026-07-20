@@ -283,6 +283,8 @@ const textoOcrBrutoEl = document.getElementById('texto-ocr-bruto');
 const ocrProgressoContainer = document.getElementById('ocr-progresso-container');
 const ocrProgressoBarra = document.getElementById('ocr-progresso-barra');
 const ocrProgressoTexto = document.getElementById('ocr-progresso-texto');
+const ocrProgressoMensagem = document.getElementById('ocr-progresso-mensagem');
+const linkModeloPlanilha = document.getElementById('link-modelo-planilha');
 
 let arquivoSelecionado = null;
 let itensExtraidos = []; // { descricao, quantidade, produtoId }
@@ -302,10 +304,22 @@ inputArquivoNota.addEventListener('change', () => {
   if (inputArquivoNota.files.length) definirArquivoSelecionado(inputArquivoNota.files[0]);
 });
 
+const TIPOS_IMAGEM_PDF = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
+const TIPOS_PLANILHA = [
+  'text/csv',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+];
+const EXTENSOES_PLANILHA = ['.csv', '.xlsx', '.xls'];
+
+function ehArquivoPlanilha(arquivo) {
+  const nome = arquivo.name.toLowerCase();
+  return TIPOS_PLANILHA.includes(arquivo.type) || EXTENSOES_PLANILHA.some((ext) => nome.endsWith(ext));
+}
+
 function definirArquivoSelecionado(arquivo) {
-  const tiposAceitos = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
-  if (!tiposAceitos.includes(arquivo.type)) {
-    mostrarToast('Formato não suportado. Envie uma imagem (PNG/JPG) ou PDF.');
+  if (!TIPOS_IMAGEM_PDF.includes(arquivo.type) && !ehArquivoPlanilha(arquivo)) {
+    mostrarToast('Formato não suportado. Envie uma imagem (PNG/JPG), PDF ou planilha (XLSX/XLS/CSV).');
     return;
   }
   arquivoSelecionado = arquivo;
@@ -314,7 +328,28 @@ function definirArquivoSelecionado(arquivo) {
   btnProcessarNota.disabled = false;
 }
 
-btnProcessarNota.addEventListener('click', processarArquivoOCR);
+btnProcessarNota.addEventListener('click', () => {
+  if (!arquivoSelecionado) return;
+  if (ehArquivoPlanilha(arquivoSelecionado)) {
+    processarArquivoPlanilha(arquivoSelecionado);
+  } else {
+    processarArquivoOCR();
+  }
+});
+
+if (linkModeloPlanilha) {
+  linkModeloPlanilha.addEventListener('click', (e) => {
+    e.preventDefault();
+    const conteudo = 'Produto,Quantidade\nArroz 5kg,10\nFeijao 1kg,5\n';
+    const blob = new Blob([conteudo], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'modelo-lista-compras.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
 
 const MAX_PAGINAS_PDF = 5; // limite de seguranca p/ nao travar o navegador em PDFs muito longos
 
@@ -333,7 +368,7 @@ async function processarArquivoOCR() {
     return;
   }
 
-  mostrarProgressoOCR(true);
+  mostrarProgressoOCR(true, 'Lendo nota, aguarde…');
 
   try {
     const fontesImagem =
@@ -436,15 +471,93 @@ async function prepararImagemParaOCR(fonte) {
   return canvas;
 }
 
-function mostrarProgressoOCR(mostrar) {
+function mostrarProgressoOCR(mostrar, mensagem) {
   ocrProgressoContainer.classList.toggle('hidden', !mostrar);
   btnProcessarNota.disabled = mostrar;
-  if (mostrar) atualizarProgressoOCR(0);
+  if (mostrar) {
+    atualizarProgressoOCR(0);
+    if (mensagem) ocrProgressoMensagem.textContent = mensagem;
+  }
 }
 
 function atualizarProgressoOCR(percentual) {
   ocrProgressoBarra.style.width = `${percentual}%`;
   ocrProgressoTexto.textContent = `${percentual}%`;
+}
+
+/**
+ * Lê uma planilha (.xlsx, .xls ou .csv — inclusive exportada do Google Sheets) usando
+ * SheetJS e extrai itens do mesmo jeito que a leitura de cupom: produto + quantidade,
+ * prontos para a mesma tela de revisão antes de somar ao estoque.
+ */
+async function processarArquivoPlanilha(arquivo) {
+  if (typeof XLSX === 'undefined') {
+    mostrarToast('Biblioteca de planilhas não carregada. Verifique sua conexão com a internet.');
+    return;
+  }
+
+  mostrarProgressoOCR(true, 'Lendo planilha, aguarde…');
+
+  try {
+    const bufferArray = await arquivo.arrayBuffer();
+    const pasta = XLSX.read(bufferArray, { type: 'array' });
+    const planilha = pasta.Sheets[pasta.SheetNames[0]];
+    const linhas = XLSX.utils.sheet_to_json(planilha, { header: 1, raw: false, defval: '' });
+
+    const { colProduto, colQuantidade, linhaInicial } = detectarColunasPlanilha(linhas);
+
+    itensExtraidos = linhas
+      .slice(linhaInicial)
+      .map((linha) => ({
+        descricao: String(linha[colProduto] ?? '').trim(),
+        quantidade: paraNumero(linha[colQuantidade]) || 0,
+      }))
+      .filter((item) => item.descricao && item.quantidade > 0)
+      .map((item) => ({ ...item, produtoId: encontrarProdutoCorrespondente(item.descricao) }));
+
+    const totalLinhasLidas = Math.max(0, linhas.length - linhaInicial);
+    textoOcrBrutoEl.textContent =
+      `Planilha "${arquivo.name}": ${itensExtraidos.length} item(ns) reconhecido(s) de ${totalLinhasLidas} linha(s) lida(s).\n` +
+      `Coluna do produto: ${colProduto + 1}ª · Coluna da quantidade: ${colQuantidade + 1}ª` +
+      (linhaInicial > 0 ? ' · 1ª linha tratada como cabeçalho' : '');
+
+    if (itensExtraidos.length === 0) {
+      mostrarToast('Nenhuma linha válida encontrada. Confira as colunas de Produto e Quantidade na planilha.');
+    } else {
+      mostrarToast(`${itensExtraidos.length} item(ns) lido(s) da planilha. Confira antes de confirmar.`);
+    }
+
+    renderizarRevisaoOCR();
+  } catch (erro) {
+    console.error(erro);
+    mostrarToast('Erro ao ler a planilha. Verifique se o arquivo é um .xlsx, .xls ou .csv válido.');
+  } finally {
+    mostrarProgressoOCR(false);
+  }
+}
+
+/**
+ * Descobre em quais colunas estão o produto e a quantidade, procurando um cabeçalho
+ * reconhecível nas 3 primeiras linhas (ex: "Produto"/"Item" e "Quantidade"/"Qtd").
+ * Se não achar cabeçalho, assume produto na 1ª coluna e quantidade na 2ª, pulando a
+ * primeira linha apenas se ela não parecer conter um número (sinal de que é cabeçalho).
+ */
+function detectarColunasPlanilha(linhas) {
+  const palavrasProduto = ['produto', 'item', 'descricao', 'nome', 'mercadoria'];
+  const palavrasQuantidade = ['quantidade', 'qtd', 'qtde', 'quant', 'comprar', 'unidades'];
+
+  for (let i = 0; i < Math.min(3, linhas.length); i++) {
+    const linha = (linhas[i] || []).map((celula) => normalizarTexto(String(celula ?? '')));
+    const colProduto = linha.findIndex((c) => palavrasProduto.some((p) => c.includes(p)));
+    const colQuantidade = linha.findIndex((c) => palavrasQuantidade.some((p) => c.includes(p)));
+    if (colProduto !== -1 && colQuantidade !== -1) {
+      return { colProduto, colQuantidade, linhaInicial: i + 1 };
+    }
+  }
+
+  const primeiraLinha = linhas[0] || [];
+  const segundaCelulaEhNumero = !Number.isNaN(paraNumero(primeiraLinha[1])) && primeiraLinha[1] !== '' && primeiraLinha[1] !== undefined;
+  return { colProduto: 0, colQuantidade: 1, linhaInicial: segundaCelulaEhNumero ? 0 : 1 };
 }
 
 // Palavras/trechos de linhas de cabeçalho, totais e rodapé que nunca são um item comprado.
