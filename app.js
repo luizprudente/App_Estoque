@@ -347,6 +347,177 @@ function ajustarEstoqueAtual(id, delta) {
   renderizarCadastro();
 }
 
+// ===================== Contagem do Dia via Planilha =====================
+// Diferente da planilha em "Entrada de Estoque" (que SOMA compras ao estoque), aqui a
+// planilha representa uma contagem física e por isso SUBSTITUI o Estoque Atual.
+const dropzoneContagem = document.getElementById('dropzone-contagem');
+const inputArquivoContagem = document.getElementById('input-arquivo-contagem');
+const nomeArquivoContagemEl = document.getElementById('nome-arquivo-contagem');
+const btnProcessarPlanilhaContagem = document.getElementById('btn-processar-planilha-contagem');
+const secaoRevisaoContagem = document.getElementById('secao-revisao-contagem');
+const tabelaRevisaoContagem = document.getElementById('tabela-revisao-contagem');
+
+let arquivoContagemSelecionado = null;
+let itensContagemPlanilha = []; // { descricao, quantidade, produtoId }
+
+dropzoneContagem.addEventListener('click', () => inputArquivoContagem.click());
+dropzoneContagem.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropzoneContagem.classList.add('dragover');
+});
+dropzoneContagem.addEventListener('dragleave', () => dropzoneContagem.classList.remove('dragover'));
+dropzoneContagem.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzoneContagem.classList.remove('dragover');
+  if (e.dataTransfer.files.length) definirArquivoContagemSelecionado(e.dataTransfer.files[0]);
+});
+inputArquivoContagem.addEventListener('change', () => {
+  if (inputArquivoContagem.files.length) definirArquivoContagemSelecionado(inputArquivoContagem.files[0]);
+});
+
+function definirArquivoContagemSelecionado(arquivo) {
+  if (!ehArquivoPlanilha(arquivo)) {
+    mostrarToast('Formato não suportado. Envie uma planilha (XLSX/XLS/CSV).');
+    return;
+  }
+  arquivoContagemSelecionado = arquivo;
+  nomeArquivoContagemEl.textContent = `Selecionado: ${arquivo.name}`;
+  nomeArquivoContagemEl.classList.remove('hidden');
+  btnProcessarPlanilhaContagem.disabled = false;
+}
+
+btnProcessarPlanilhaContagem.addEventListener('click', processarPlanilhaContagem);
+
+async function processarPlanilhaContagem() {
+  if (!arquivoContagemSelecionado) return;
+
+  if (typeof XLSX === 'undefined') {
+    mostrarToast('Biblioteca de planilhas não carregada. Verifique sua conexão com a internet.');
+    return;
+  }
+
+  btnProcessarPlanilhaContagem.disabled = true;
+
+  try {
+    const bufferArray = await arquivoContagemSelecionado.arrayBuffer();
+    const pasta = XLSX.read(bufferArray, { type: 'array' });
+    const planilha = pasta.Sheets[pasta.SheetNames[0]];
+    const linhas = XLSX.utils.sheet_to_json(planilha, { header: 1, raw: false, defval: '' });
+
+    const { colProduto, colQuantidade, linhaInicial } = detectarColunasPlanilha(linhas);
+
+    itensContagemPlanilha = linhas
+      .slice(linhaInicial)
+      .map((linha) => ({
+        descricao: String(linha[colProduto] ?? '').trim(),
+        quantidade: paraNumero(linha[colQuantidade]),
+      }))
+      // aceita quantidade 0 (item zerado na contagem física é uma informação válida)
+      .filter((item) => item.descricao && !Number.isNaN(item.quantidade) && item.quantidade >= 0)
+      .map((item) => ({ ...item, produtoId: encontrarProdutoCorrespondente(item.descricao) }));
+
+    if (itensContagemPlanilha.length === 0) {
+      mostrarToast('Nenhuma linha válida encontrada. Confira as colunas de Produto e Quantidade na planilha.');
+    } else {
+      mostrarToast(`${itensContagemPlanilha.length} linha(s) lida(s). Confira antes de aplicar à contagem.`);
+    }
+
+    renderizarRevisaoContagem();
+  } catch (erro) {
+    console.error(erro);
+    mostrarToast('Erro ao ler a planilha. Verifique se o arquivo é um .xlsx, .xls ou .csv válido.');
+  } finally {
+    btnProcessarPlanilhaContagem.disabled = false;
+  }
+}
+
+function renderizarRevisaoContagem() {
+  tabelaRevisaoContagem.innerHTML = '';
+  secaoRevisaoContagem.classList.toggle('hidden', itensContagemPlanilha.length === 0);
+
+  itensContagemPlanilha.forEach((item, index) => {
+    const opcoesProdutos = produtos
+      .map((p) => `<option value="${p.id}" ${p.id === item.produtoId ? 'selected' : ''}>${escapeHtml(p.nome)}</option>`)
+      .join('');
+
+    const tr = document.createElement('tr');
+    tr.className = 'border-b last:border-0 align-top';
+    tr.innerHTML = `
+      <td class="py-2 pr-2">${escapeHtml(item.descricao || '(descrição vazia)')}</td>
+      <td class="py-2 pr-2">
+        <select data-index="${index}" class="select-produto-contagem rounded-lg border-gray-300 border px-2 py-1 text-sm max-w-[200px]">
+          <option value="">-- Não mapear --</option>
+          ${opcoesProdutos}
+        </select>
+      </td>
+      <td class="py-2 pr-2">
+        <input type="text" inputmode="decimal" value="${formatarNumero(item.quantidade)}" data-index="${index}"
+          class="input-quantidade-contagem-planilha w-24 rounded-lg border-gray-300 border px-2 py-1 text-sm" />
+      </td>
+      <td class="py-2 pr-2 text-right">
+        <button data-index="${index}" class="btn-remover-item-contagem text-red-500 hover:text-red-700 text-xs font-medium">Remover</button>
+      </td>
+    `;
+    tabelaRevisaoContagem.appendChild(tr);
+  });
+
+  tabelaRevisaoContagem.querySelectorAll('.select-produto-contagem').forEach((select) => {
+    select.addEventListener('change', () => {
+      const idx = Number(select.dataset.index);
+      itensContagemPlanilha[idx].produtoId = select.value || null;
+    });
+  });
+
+  tabelaRevisaoContagem.querySelectorAll('.input-quantidade-contagem-planilha').forEach((input) => {
+    input.addEventListener('change', () => {
+      const idx = Number(input.dataset.index);
+      itensContagemPlanilha[idx].quantidade = paraNumero(input.value);
+    });
+    selecionarConteudoAoFocar(input);
+  });
+
+  tabelaRevisaoContagem.querySelectorAll('.btn-remover-item-contagem').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.index);
+      itensContagemPlanilha.splice(idx, 1);
+      renderizarRevisaoContagem();
+    });
+  });
+}
+
+document.getElementById('btn-aplicar-contagem').addEventListener('click', aplicarContagemDaPlanilha);
+
+/** Sobrescreve o Estoque Atual dos produtos mapeados com os valores da planilha (contagem física). */
+function aplicarContagemDaPlanilha() {
+  const itensValidos = itensContagemPlanilha.filter(
+    (item) => item.produtoId && !Number.isNaN(item.quantidade) && item.quantidade >= 0
+  );
+
+  if (itensValidos.length === 0) {
+    mostrarToast('Selecione um produto válido para pelo menos um item.');
+    return;
+  }
+
+  itensValidos.forEach((item) => {
+    const produto = produtos.find((p) => p.id === item.produtoId);
+    if (!produto) return;
+    produto.estoqueAtual = arredondar2(item.quantidade);
+  });
+
+  salvarProdutos(produtos);
+  mostrarToast(`Contagem de ${itensValidos.length} produto(s) atualizada!`);
+
+  itensContagemPlanilha = [];
+  arquivoContagemSelecionado = null;
+  inputArquivoContagem.value = '';
+  nomeArquivoContagemEl.classList.add('hidden');
+  btnProcessarPlanilhaContagem.disabled = true;
+
+  renderizarRevisaoContagem();
+  renderizarContagem();
+  renderizarCadastro();
+}
+
 // ===================== Entrada de Estoque por Notas (OCR) =====================
 const dropzone = document.getElementById('dropzone');
 const inputArquivoNota = document.getElementById('input-arquivo-nota');

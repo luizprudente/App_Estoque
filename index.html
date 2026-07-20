@@ -86,6 +86,59 @@
     <!-- ===================== ABA: CONTAGEM DO DIA ===================== -->
     <section id="tab-contagem" class="tab-panel space-y-4 hidden">
       <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-lg font-semibold mb-1">Atualizar Contagem via Planilha</h2>
+        <p class="text-sm text-gray-500 mb-2">
+          Envie uma planilha (.xlsx, .xls ou .csv) com o resultado da contagem física. Isso
+          <strong>substitui</strong> o Estoque Atual dos produtos encontrados pelo valor da planilha — diferente da
+          aba "Entrada de Estoque", que <strong>soma</strong> compras ao estoque existente.
+        </p>
+        <p class="text-xs text-gray-400 mb-4">
+          Use colunas "Produto" e "Quantidade" (em qualquer ordem) — ou, sem cabeçalho, produto na 1ª coluna e
+          quantidade na 2ª.
+        </p>
+
+        <input type="file" id="input-arquivo-contagem"
+          accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          class="hidden" />
+        <div id="dropzone-contagem" class="dropzone">
+          <p class="text-gray-500 text-sm">📎 Clique ou arraste aqui a planilha (XLSX/XLS/CSV) da contagem</p>
+          <p id="nome-arquivo-contagem" class="text-sm font-medium text-blue-600 mt-2 hidden"></p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 mt-4">
+          <button id="btn-processar-planilha-contagem" disabled
+            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-5 py-2 rounded-lg shadow transition">
+            🔍 Processar Planilha
+          </button>
+        </div>
+
+        <div id="secao-revisao-contagem" class="mt-5 hidden">
+          <h3 class="text-sm font-semibold mb-1">Confira antes de aplicar</h3>
+          <p class="text-xs text-gray-500 mb-3">
+            Associe cada linha a um produto cadastrado e ajuste a quantidade — isto vai <strong>substituir</strong> o
+            estoque atual dele.
+          </p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-gray-500 border-b">
+                  <th class="py-2 pr-2">Linha da planilha</th>
+                  <th class="py-2 pr-2">Produto</th>
+                  <th class="py-2 pr-2">Nova quantidade</th>
+                  <th class="py-2 pr-2 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tabela-revisao-contagem"></tbody>
+            </table>
+          </div>
+          <button id="btn-aplicar-contagem"
+            class="mt-4 bg-green-600 hover:bg-green-700 text-white font-medium px-5 py-2 rounded-lg shadow transition">
+            ✅ Aplicar à Contagem
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-5">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold">Contagem do Dia</h2>
           <span class="text-xs text-gray-400" id="data-contagem"></span>
