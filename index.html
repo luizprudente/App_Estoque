@@ -308,7 +308,17 @@
           </button>
         </div>
 
-        <div id="lista-compras-resultado" class="overflow-x-auto">
+        <div class="flex gap-2 mb-4" role="tablist">
+          <button data-modo-lista="produto" class="modo-lista-btn px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 text-white">
+            Por Produto
+          </button>
+          <button data-modo-lista="fornecedor" class="modo-lista-btn px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
+            Por Fornecedor
+          </button>
+        </div>
+
+        <!-- Visão: Por Produto -->
+        <div id="lista-compras-por-produto" class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
               <tr class="text-left text-gray-500 border-b">
@@ -316,12 +326,16 @@
                 <th class="py-2 pr-2">Estoque Atual</th>
                 <th class="py-2 pr-2">Estoque Mínimo</th>
                 <th class="py-2 pr-2">Comprar</th>
+                <th class="py-2 pr-2">Fornecedores</th>
               </tr>
             </thead>
             <tbody id="tabela-lista-compras"></tbody>
           </table>
           <p id="lista-vazia" class="text-gray-400 text-sm py-4 hidden">Nenhum item abaixo do estoque mínimo. Clique em "Gerar Lista de Compras" para atualizar.</p>
         </div>
+
+        <!-- Visão: Por Fornecedor -->
+        <div id="lista-compras-por-fornecedor" class="space-y-4 hidden"></div>
 
         <div id="lista-compras-acoes" class="flex flex-wrap gap-3 mt-5 hidden">
           <button id="btn-exportar-texto"

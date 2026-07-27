@@ -1289,9 +1289,27 @@ function renderizarHistoricoNotas() {
 const btnGerarLista = document.getElementById('btn-gerar-lista');
 const tabelaListaCompras = document.getElementById('tabela-lista-compras');
 const listaVazia = document.getElementById('lista-vazia');
+const listaComprasPorProdutoEl = document.getElementById('lista-compras-por-produto');
+const listaComprasPorFornecedorEl = document.getElementById('lista-compras-por-fornecedor');
 const listaComprasAcoes = document.getElementById('lista-compras-acoes');
 const btnExportarTexto = document.getElementById('btn-exportar-texto');
 const btnWhatsapp = document.getElementById('btn-whatsapp');
+
+let modoVisualizacaoLista = 'produto'; // 'produto' ou 'fornecedor'
+
+document.querySelectorAll('.modo-lista-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    modoVisualizacaoLista = btn.dataset.modoLista;
+    document.querySelectorAll('.modo-lista-btn').forEach((b) => {
+      const ativo = b === btn;
+      b.classList.toggle('bg-blue-600', ativo);
+      b.classList.toggle('text-white', ativo);
+      b.classList.toggle('bg-gray-100', !ativo);
+      b.classList.toggle('text-gray-700', !ativo);
+    });
+    renderizarListaCompras();
+  });
+});
 
 btnGerarLista.addEventListener('click', gerarListaCompras);
 
@@ -1307,14 +1325,63 @@ function gerarListaCompras() {
   mostrarToast('Lista de compras gerada!');
 }
 
-function renderizarListaCompras() {
-  tabelaListaCompras.innerHTML = '';
-  const temItens = ultimaListaCompras.length > 0;
+/** Nomes dos fornecedores de um item da lista, já formatados para exibição ("—" se nenhum). */
+function nomesFornecedoresDoItem(item) {
+  const nomes = (item.fornecedorIds || [])
+    .map((id) => fornecedores.find((f) => f.id === id))
+    .filter(Boolean)
+    .map((f) => f.nome);
+  return nomes;
+}
 
-  listaVazia.classList.toggle('hidden', temItens);
-  listaComprasAcoes.classList.toggle('hidden', !temItens);
+/**
+ * Agrupa a lista de compras por fornecedor. Um item aparece em todos os grupos dos
+ * fornecedores que tiver marcado (para comparar preço entre eles); itens sem nenhum
+ * fornecedor definido caem num grupo à parte. Fornecedores em ordem alfabética,
+ * "Sem fornecedor" sempre por último.
+ */
+function agruparListaComprasPorFornecedor() {
+  const grupos = new Map();
 
   ultimaListaCompras.forEach((item) => {
+    const ids = item.fornecedorIds && item.fornecedorIds.length > 0 ? item.fornecedorIds : ['__sem__'];
+    ids.forEach((fid) => {
+      if (!grupos.has(fid)) grupos.set(fid, []);
+      grupos.get(fid).push(item);
+    });
+  });
+
+  const idsOrdenados = [...grupos.keys()].sort((a, b) => {
+    if (a === '__sem__') return 1;
+    if (b === '__sem__') return -1;
+    const nomeA = fornecedores.find((f) => f.id === a)?.nome || '';
+    const nomeB = fornecedores.find((f) => f.id === b)?.nome || '';
+    return nomeA.localeCompare(nomeB, 'pt-BR');
+  });
+
+  return idsOrdenados.map((fid) => ({
+    fornecedor: fornecedores.find((f) => f.id === fid) || null,
+    itens: grupos.get(fid),
+  }));
+}
+
+function renderizarListaCompras() {
+  listaComprasPorProdutoEl.classList.toggle('hidden', modoVisualizacaoLista !== 'produto');
+  listaComprasPorFornecedorEl.classList.toggle('hidden', modoVisualizacaoLista !== 'fornecedor');
+  listaComprasAcoes.classList.toggle('hidden', ultimaListaCompras.length === 0);
+
+  renderizarListaComprasPorProduto();
+  renderizarListaComprasPorFornecedor();
+}
+
+function renderizarListaComprasPorProduto() {
+  tabelaListaCompras.innerHTML = '';
+  const temItens = ultimaListaCompras.length > 0;
+  listaVazia.classList.toggle('hidden', temItens);
+
+  ultimaListaCompras.forEach((item) => {
+    const nomesFornecedores = nomesFornecedoresDoItem(item).map(escapeHtml).join(', ');
+
     const tr = document.createElement('tr');
     tr.className = 'border-b last:border-0';
     tr.innerHTML = `
@@ -1322,17 +1389,72 @@ function renderizarListaCompras() {
       <td class="py-2 pr-2">${formatarNumero(item.estoqueAtual)}</td>
       <td class="py-2 pr-2">${formatarNumero(item.estoqueMinimo)}</td>
       <td class="py-2 pr-2 font-semibold text-red-600">${formatarNumero(item.comprar)}</td>
+      <td class="py-2 pr-2 text-gray-500">${nomesFornecedores || '—'}</td>
     `;
     tabelaListaCompras.appendChild(tr);
   });
 }
 
+function renderizarListaComprasPorFornecedor() {
+  listaComprasPorFornecedorEl.innerHTML = '';
+
+  if (ultimaListaCompras.length === 0) {
+    listaComprasPorFornecedorEl.innerHTML =
+      '<p class="text-gray-400 text-sm py-4">Nenhum item abaixo do estoque mínimo. Clique em "Gerar Lista de Compras" para atualizar.</p>';
+    return;
+  }
+
+  agruparListaComprasPorFornecedor().forEach(({ fornecedor, itens }) => {
+    const card = document.createElement('div');
+    card.className = 'border border-gray-200 rounded-lg p-4';
+    card.innerHTML = `
+      <div class="flex items-baseline justify-between gap-2 mb-2">
+        <h3 class="font-semibold text-gray-800">${fornecedor ? escapeHtml(fornecedor.nome) : 'Sem fornecedor definido'}</h3>
+        ${fornecedor && fornecedor.contato ? `<span class="text-xs text-gray-400">${escapeHtml(fornecedor.contato)}</span>` : ''}
+      </div>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-gray-500 border-b">
+            <th class="py-1 pr-2">Produto</th>
+            <th class="py-1 pr-2">Comprar</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itens
+            .map(
+              (item) => `
+            <tr class="border-b last:border-0">
+              <td class="py-1 pr-2">${escapeHtml(item.nome)}</td>
+              <td class="py-1 pr-2 font-semibold text-red-600">${formatarNumero(item.comprar)}</td>
+            </tr>
+          `
+            )
+            .join('')}
+        </tbody>
+      </table>
+    `;
+    listaComprasPorFornecedorEl.appendChild(card);
+  });
+}
+
 function montarTextoListaCompras() {
   if (ultimaListaCompras.length === 0) return '';
-  const linhas = ultimaListaCompras.map(
-    (item) => `- ${item.nome}: ${formatarNumero(item.comprar)} un. (atual: ${formatarNumero(item.estoqueAtual)} / mínimo: ${formatarNumero(item.estoqueMinimo)})`
-  );
   const dataHoje = new Date().toLocaleDateString('pt-BR');
+
+  if (modoVisualizacaoLista === 'fornecedor') {
+    const blocos = agruparListaComprasPorFornecedor().map(({ fornecedor, itens }) => {
+      const titulo = fornecedor ? fornecedor.nome : 'Sem fornecedor definido';
+      const linhas = itens.map((item) => `- ${item.nome}: ${formatarNumero(item.comprar)} un.`);
+      return `*${titulo}*\n${linhas.join('\n')}`;
+    });
+    return `🛒 Lista de Compras por Fornecedor - ${dataHoje}\n\n${blocos.join('\n\n')}`;
+  }
+
+  const linhas = ultimaListaCompras.map((item) => {
+    const nomesFornecedores = nomesFornecedoresDoItem(item).join(', ');
+    const sufixoFornecedores = nomesFornecedores ? ` — fornecedores: ${nomesFornecedores}` : '';
+    return `- ${item.nome}: ${formatarNumero(item.comprar)} un. (atual: ${formatarNumero(item.estoqueAtual)} / mínimo: ${formatarNumero(item.estoqueMinimo)})${sufixoFornecedores}`;
+  });
   return `🛒 Lista de Compras - ${dataHoje}\n\n${linhas.join('\n')}`;
 }
 
