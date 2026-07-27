@@ -63,12 +63,21 @@
             <div id="checklist-fornecedores-novo-produto" class="border border-gray-200 rounded-lg p-3 max-h-32 overflow-y-auto"></div>
           </div>
           <div class="sm:col-span-4">
+            <label class="block text-sm font-medium text-gray-600 mb-1" for="input-marcas">
+              Marcas Homologadas (opcional)
+            </label>
+            <input id="input-marcas" type="text" list="lista-marcas-conhecidas" placeholder="Ex: Marca A, Marca B (separe por vírgula)"
+              class="w-full rounded-lg border-gray-300 border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            <p class="text-xs text-gray-400 mt-1">Marcas aprovadas para uso nas pizzas. Separe por vírgula se tiver mais de uma.</p>
+          </div>
+          <div class="sm:col-span-4">
             <button type="submit"
               class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2 rounded-lg shadow transition">
               + Adicionar Produto
             </button>
           </div>
         </form>
+        <datalist id="lista-marcas-conhecidas"></datalist>
       </div>
 
       <div class="bg-white rounded-xl shadow p-5">
@@ -81,6 +90,7 @@
                 <th class="py-2 pr-2">Estoque Atual</th>
                 <th class="py-2 pr-2">Estoque Mínimo</th>
                 <th class="py-2 pr-2">Fornecedores</th>
+                <th class="py-2 pr-2">Marcas Homologadas</th>
                 <th class="py-2 pr-2 text-right">Ações</th>
               </tr>
             </thead>
@@ -345,6 +355,14 @@
           <button id="btn-whatsapp"
             class="bg-emerald-500 hover:bg-emerald-600 text-white font-medium px-4 py-2 rounded-lg shadow transition">
             💬 Enviar para WhatsApp
+          </button>
+          <button id="btn-exportar-xlsx"
+            class="bg-blue-700 hover:bg-blue-800 text-white font-medium px-4 py-2 rounded-lg shadow transition">
+            📊 Exportar XLSX
+          </button>
+          <button id="btn-exportar-csv"
+            class="bg-gray-500 hover:bg-gray-600 text-white font-medium px-4 py-2 rounded-lg shadow transition">
+            📄 Exportar CSV
           </button>
         </div>
       </div>

@@ -6,7 +6,7 @@ const FORNECEDORES_KEY = 'estoque_fornecedores';
 
 /**
  * @typedef {{ id: string, nome: string, estoqueAtual: number, estoqueMinimo: number,
- *   estoqueInicial: number, comprasNotas: number, fornecedorIds: string[] }} Produto
+ *   estoqueInicial: number, comprasNotas: number, fornecedorIds: string[], marcas: string[] }} Produto
  * @typedef {{ id: string, data: string, arquivoNome: string,
  *   itens: { produtoId: string, nome: string, quantidade: number }[] }} Nota
  * @typedef {{ id: string, nome: string, contato: string, observacao: string }} Fornecedor
@@ -36,6 +36,10 @@ function migrarProdutos(lista) {
     }
     if (!Array.isArray(p.fornecedorIds)) {
       p.fornecedorIds = [];
+      alterado = true;
+    }
+    if (!Array.isArray(p.marcas)) {
+      p.marcas = [];
       alterado = true;
     }
   });
@@ -142,9 +146,31 @@ const inputMinimo = document.getElementById('input-minimo');
 const tabelaCadastro = document.getElementById('tabela-cadastro');
 const cadastroVazio = document.getElementById('cadastro-vazio');
 const checklistFornecedoresNovoProduto = document.getElementById('checklist-fornecedores-novo-produto');
+const inputMarcas = document.getElementById('input-marcas');
+const datalistMarcas = document.getElementById('lista-marcas-conhecidas');
 
 selecionarConteudoAoFocar(inputAtual);
 selecionarConteudoAoFocar(inputMinimo);
+
+/** Converte "Marca A, Marca B" em ['Marca A', 'Marca B'], sem duplicatas nem vazios. */
+function parseMarcas(valor) {
+  const marcas = String(valor || '')
+    .split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
+  return [...new Set(marcas)];
+}
+
+/** Atualiza as sugestões de autocomplete com todas as marcas já usadas em algum produto. */
+function atualizarDatalistMarcas() {
+  if (!datalistMarcas) return;
+  const todasMarcas = new Set();
+  produtos.forEach((p) => (p.marcas || []).forEach((m) => todasMarcas.add(m)));
+  datalistMarcas.innerHTML = [...todasMarcas]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+    .map((m) => `<option value="${escapeHtml(m)}"></option>`)
+    .join('');
+}
 
 /** Preenche um container com uma checkbox por fornecedor cadastrado. */
 function renderizarChecklistFornecedores(container, idsSelecionados) {
@@ -183,6 +209,7 @@ formProduto.addEventListener('submit', (e) => {
   }
 
   const fornecedorIds = obterFornecedoresSelecionados(checklistFornecedoresNovoProduto);
+  const marcas = parseMarcas(inputMarcas.value);
 
   produtos.push({
     id: crypto.randomUUID(),
@@ -192,6 +219,7 @@ formProduto.addEventListener('submit', (e) => {
     estoqueInicial: estoqueAtual,
     comprasNotas: 0,
     fornecedorIds,
+    marcas,
   });
 
   salvarProdutos(produtos);
@@ -217,6 +245,7 @@ function criarProdutoRapido(nomeSugerido) {
     estoqueInicial: 0,
     comprasNotas: 0,
     fornecedorIds: [],
+    marcas: [],
   };
 
   produtos.push(novoProduto);
@@ -229,6 +258,7 @@ let produtoEmEdicaoId = null;
 
 function renderizarCadastro() {
   renderizarChecklistFornecedores(checklistFornecedoresNovoProduto, []);
+  atualizarDatalistMarcas();
 
   tabelaCadastro.innerHTML = '';
   cadastroVazio.classList.toggle('hidden', produtos.length > 0);
@@ -254,6 +284,11 @@ function renderizarCadastro() {
         <td class="py-2 pr-2">
           <div id="checklist-edicao-fornecedores" class="border border-gray-200 rounded-lg p-2 max-h-24 overflow-y-auto max-w-[180px]"></div>
         </td>
+        <td class="py-2 pr-2">
+          <input type="text" list="lista-marcas-conhecidas" value="${escapeHtml((produto.marcas || []).join(', '))}" data-campo="marcas"
+            placeholder="Marca A, Marca B"
+            class="input-edicao-cadastro w-40 rounded-lg border-gray-300 border px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </td>
         <td class="py-2 pr-2 text-right whitespace-nowrap">
           <button class="text-green-600 hover:text-green-800 text-xs font-medium mr-2" data-salvar="${produto.id}">Salvar</button>
           <button class="text-gray-500 hover:text-gray-700 text-xs font-medium" data-cancelar>Cancelar</button>
@@ -270,11 +305,14 @@ function renderizarCadastro() {
       .map((f) => escapeHtml(f.nome))
       .join(', ');
 
+    const marcasTexto = (produto.marcas || []).map(escapeHtml).join(', ');
+
     tr.innerHTML = `
       <td class="py-2 pr-2 font-medium">${escapeHtml(produto.nome)}</td>
       <td class="py-2 pr-2">${formatarNumero(produto.estoqueAtual)}</td>
       <td class="py-2 pr-2">${formatarNumero(produto.estoqueMinimo)}</td>
       <td class="py-2 pr-2 text-gray-500">${nomesFornecedores || '—'}</td>
+      <td class="py-2 pr-2 text-gray-500">${marcasTexto || '—'}</td>
       <td class="py-2 pr-2 text-right whitespace-nowrap">
         <button class="text-blue-600 hover:text-blue-800 text-xs font-medium mr-2" data-editar="${produto.id}">
           Editar
@@ -335,6 +373,7 @@ function salvarEdicaoProduto(id) {
   produto.estoqueAtual = arredondar2(estoqueAtual);
   produto.estoqueMinimo = arredondar2(estoqueMinimo);
   produto.fornecedorIds = obterFornecedoresSelecionados(document.getElementById('checklist-edicao-fornecedores'));
+  produto.marcas = parseMarcas(linha.querySelector('[data-campo="marcas"]').value);
 
   salvarProdutos(produtos);
   produtoEmEdicaoId = null;
@@ -1480,6 +1519,73 @@ btnWhatsapp.addEventListener('click', () => {
   if (!texto) return;
   const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
   window.open(url, '_blank');
+});
+
+/**
+ * Monta a lista de compras como uma matriz de linhas (cabeçalho + dados), pronta para
+ * virar planilha. Segue o modo de visualização ativo: no modo "produto", uma linha por
+ * item com estoque/mínimo/fornecedores; no modo "fornecedor", uma linha por combinação
+ * fornecedor+item (o mesmo item repete em cada fornecedor que tiver).
+ */
+function montarLinhasListaComprasParaPlanilha() {
+  if (modoVisualizacaoLista === 'fornecedor') {
+    const linhas = [['Fornecedor', 'Produto', 'Comprar']];
+    agruparListaComprasPorFornecedor().forEach(({ fornecedor, itens }) => {
+      const nomeFornecedor = fornecedor ? fornecedor.nome : 'Sem fornecedor definido';
+      itens.forEach((item) => linhas.push([nomeFornecedor, item.nome, arredondar2(item.comprar)]));
+    });
+    return linhas;
+  }
+
+  const linhas = [['Produto', 'Estoque Atual', 'Estoque Mínimo', 'Comprar', 'Fornecedores']];
+  ultimaListaCompras.forEach((item) => {
+    linhas.push([
+      item.nome,
+      arredondar2(item.estoqueAtual),
+      arredondar2(item.estoqueMinimo),
+      arredondar2(item.comprar),
+      nomesFornecedoresDoItem(item).join(', '),
+    ]);
+  });
+  return linhas;
+}
+
+function nomeArquivoListaCompras(extensao) {
+  const dataHoje = new Date().toISOString().slice(0, 10);
+  const sufixoModo = modoVisualizacaoLista === 'fornecedor' ? 'por-fornecedor' : 'por-produto';
+  return `lista-de-compras-${sufixoModo}-${dataHoje}.${extensao}`;
+}
+
+const btnExportarXlsx = document.getElementById('btn-exportar-xlsx');
+const btnExportarCsv = document.getElementById('btn-exportar-csv');
+
+btnExportarXlsx.addEventListener('click', () => {
+  if (ultimaListaCompras.length === 0) return;
+  if (typeof XLSX === 'undefined') {
+    mostrarToast('Biblioteca de planilhas não carregada. Verifique sua conexão com a internet.');
+    return;
+  }
+  const planilha = XLSX.utils.aoa_to_sheet(montarLinhasListaComprasParaPlanilha());
+  const pasta = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(pasta, planilha, 'Lista de Compras');
+  XLSX.writeFile(pasta, nomeArquivoListaCompras('xlsx'));
+});
+
+btnExportarCsv.addEventListener('click', () => {
+  if (ultimaListaCompras.length === 0) return;
+  if (typeof XLSX === 'undefined') {
+    mostrarToast('Biblioteca de planilhas não carregada. Verifique sua conexão com a internet.');
+    return;
+  }
+  const planilha = XLSX.utils.aoa_to_sheet(montarLinhasListaComprasParaPlanilha());
+  const csv = XLSX.utils.sheet_to_csv(planilha);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomeArquivoListaCompras('csv');
+  a.click();
+  URL.revokeObjectURL(url);
 });
 
 // ===================== Relatório de Consumo =====================
