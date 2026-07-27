@@ -382,6 +382,226 @@ function salvarEdicaoProduto(id) {
   mostrarToast('Produto atualizado!');
 }
 
+// ===================== Importar/Atualizar Produtos via Planilha =====================
+// Diferente das planilhas de "Contagem" e "Entrada de Estoque" (que exigem produtos já
+// cadastrados), esta CRIA produtos novos e ATUALIZA os existentes (casando pelo nome).
+const dropzoneImportProdutos = document.getElementById('dropzone-import-produtos');
+const inputArquivoImportProdutos = document.getElementById('input-arquivo-import-produtos');
+const nomeArquivoImportProdutosEl = document.getElementById('nome-arquivo-import-produtos');
+const btnProcessarImportProdutos = document.getElementById('btn-processar-import-produtos');
+const secaoRevisaoImportProdutos = document.getElementById('secao-revisao-import-produtos');
+const tabelaRevisaoImportProdutos = document.getElementById('tabela-revisao-import-produtos');
+const linkModeloImportProdutos = document.getElementById('link-modelo-import-produtos');
+
+let arquivoImportProdutosSelecionado = null;
+let itensImportProdutos = []; // { nome, produtoExistenteId, estoqueAtual, estoqueMinimo, fornecedoresNomes, marcas }
+
+dropzoneImportProdutos.addEventListener('click', () => inputArquivoImportProdutos.click());
+dropzoneImportProdutos.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropzoneImportProdutos.classList.add('dragover');
+});
+dropzoneImportProdutos.addEventListener('dragleave', () => dropzoneImportProdutos.classList.remove('dragover'));
+dropzoneImportProdutos.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzoneImportProdutos.classList.remove('dragover');
+  if (e.dataTransfer.files.length) definirArquivoImportProdutosSelecionado(e.dataTransfer.files[0]);
+});
+inputArquivoImportProdutos.addEventListener('change', () => {
+  if (inputArquivoImportProdutos.files.length) definirArquivoImportProdutosSelecionado(inputArquivoImportProdutos.files[0]);
+});
+
+function definirArquivoImportProdutosSelecionado(arquivo) {
+  if (!ehArquivoPlanilha(arquivo)) {
+    mostrarToast('Formato não suportado. Envie uma planilha (XLSX/XLS/CSV).');
+    return;
+  }
+  arquivoImportProdutosSelecionado = arquivo;
+  nomeArquivoImportProdutosEl.textContent = `Selecionado: ${arquivo.name}`;
+  nomeArquivoImportProdutosEl.classList.remove('hidden');
+  btnProcessarImportProdutos.disabled = false;
+}
+
+btnProcessarImportProdutos.addEventListener('click', processarImportacaoProdutos);
+
+async function processarImportacaoProdutos() {
+  if (!arquivoImportProdutosSelecionado) return;
+
+  if (typeof XLSX === 'undefined') {
+    mostrarToast('Biblioteca de planilhas não carregada. Verifique sua conexão com a internet.');
+    return;
+  }
+
+  btnProcessarImportProdutos.disabled = true;
+
+  try {
+    const bufferArray = await arquivoImportProdutosSelecionado.arrayBuffer();
+    const pasta = XLSX.read(bufferArray, { type: 'array' });
+    const planilha = selecionarAbaPlanilha(pasta, 'produto');
+    const linhas = XLSX.utils.sheet_to_json(planilha, { header: 1, raw: false, defval: '' });
+
+    if (linhas.length === 0) {
+      mostrarToast('Planilha vazia.');
+      return;
+    }
+
+    const cabecalho = linhas[0];
+    const colNome = encontrarColuna(cabecalho, ['nome', 'produto', 'item', 'descricao']);
+    const colAtual = encontrarColuna(cabecalho, ['estoque atual', 'atual']);
+    const colMinimo = encontrarColuna(cabecalho, ['estoque minimo', 'minimo']);
+    const colFornecedores = encontrarColuna(cabecalho, ['fornecedor']);
+    const colMarcas = encontrarColuna(cabecalho, ['marca']);
+
+    if (colNome === -1) {
+      mostrarToast('Não encontrei uma coluna "Nome" na planilha. Confira o cabeçalho na 1ª linha.');
+      return;
+    }
+
+    itensImportProdutos = linhas
+      .slice(1)
+      .map((linha) => {
+        const nome = String(linha[colNome] ?? '').trim();
+        if (!nome) return null;
+
+        const produtoExistente = produtos.find((p) => normalizarTexto(p.nome) === normalizarTexto(nome));
+        const fornecedoresTexto = colFornecedores !== -1 ? String(linha[colFornecedores] ?? '').trim() : '';
+        const marcasTexto = colMarcas !== -1 ? String(linha[colMarcas] ?? '').trim() : '';
+
+        return {
+          nome,
+          produtoExistenteId: produtoExistente ? produtoExistente.id : null,
+          estoqueAtual: colAtual !== -1 ? paraNumeroOuNull(linha[colAtual]) : null,
+          estoqueMinimo: colMinimo !== -1 ? paraNumeroOuNull(linha[colMinimo]) : null,
+          fornecedoresNomes: fornecedoresTexto
+            ? fornecedoresTexto.split(',').map((s) => s.trim()).filter(Boolean)
+            : null,
+          marcas: marcasTexto ? parseMarcas(marcasTexto) : null,
+        };
+      })
+      .filter(Boolean);
+
+    if (itensImportProdutos.length === 0) {
+      mostrarToast('Nenhuma linha válida encontrada (confira a coluna Nome).');
+    } else {
+      mostrarToast(`${itensImportProdutos.length} linha(s) lida(s). Confira antes de importar.`);
+    }
+
+    renderizarRevisaoImportProdutos();
+  } catch (erro) {
+    console.error(erro);
+    mostrarToast('Erro ao ler a planilha. Verifique se o arquivo é um .xlsx, .xls ou .csv válido.');
+  } finally {
+    btnProcessarImportProdutos.disabled = false;
+  }
+}
+
+function renderizarRevisaoImportProdutos() {
+  tabelaRevisaoImportProdutos.innerHTML = '';
+  secaoRevisaoImportProdutos.classList.toggle('hidden', itensImportProdutos.length === 0);
+
+  itensImportProdutos.forEach((item) => {
+    const acao = item.produtoExistenteId ? 'Atualizar' : 'Novo';
+    const corAcao = item.produtoExistenteId ? 'text-blue-600' : 'text-green-600';
+
+    const tr = document.createElement('tr');
+    tr.className = 'border-b last:border-0';
+    tr.innerHTML = `
+      <td class="py-2 pr-2 font-medium">${escapeHtml(item.nome)}</td>
+      <td class="py-2 pr-2 font-semibold ${corAcao}">${acao}</td>
+      <td class="py-2 pr-2">${item.estoqueAtual === null ? '—' : formatarNumero(item.estoqueAtual)}</td>
+      <td class="py-2 pr-2">${item.estoqueMinimo === null ? '—' : formatarNumero(item.estoqueMinimo)}</td>
+      <td class="py-2 pr-2 text-gray-500">${item.fornecedoresNomes === null ? '—' : escapeHtml(item.fornecedoresNomes.join(', '))}</td>
+      <td class="py-2 pr-2 text-gray-500">${item.marcas === null ? '—' : escapeHtml(item.marcas.join(', '))}</td>
+    `;
+    tabelaRevisaoImportProdutos.appendChild(tr);
+  });
+}
+
+document.getElementById('btn-confirmar-import-produtos').addEventListener('click', confirmarImportacaoProdutos);
+
+/** Cria produtos novos e atualiza os existentes (casados pelo nome); campos em branco na planilha não são tocados. */
+function confirmarImportacaoProdutos() {
+  if (itensImportProdutos.length === 0) return;
+
+  let criados = 0;
+  let atualizados = 0;
+  let fornecedoresCriados = 0;
+
+  itensImportProdutos.forEach((item) => {
+    let fornecedorIds = null;
+    if (item.fornecedoresNomes !== null) {
+      fornecedorIds = item.fornecedoresNomes.map((nomeFornecedor) => {
+        let fornecedor = fornecedores.find((f) => normalizarTexto(f.nome) === normalizarTexto(nomeFornecedor));
+        if (!fornecedor) {
+          fornecedor = { id: crypto.randomUUID(), nome: nomeFornecedor, contato: '', observacao: '' };
+          fornecedores.push(fornecedor);
+          fornecedoresCriados++;
+        }
+        return fornecedor.id;
+      });
+    }
+
+    if (item.produtoExistenteId) {
+      const produto = produtos.find((p) => p.id === item.produtoExistenteId);
+      if (item.estoqueAtual !== null) produto.estoqueAtual = arredondar2(item.estoqueAtual);
+      if (item.estoqueMinimo !== null) produto.estoqueMinimo = arredondar2(item.estoqueMinimo);
+      if (fornecedorIds !== null) produto.fornecedorIds = fornecedorIds;
+      if (item.marcas !== null) produto.marcas = item.marcas;
+      atualizados++;
+    } else {
+      const estoqueAtual = item.estoqueAtual === null ? 0 : arredondar2(item.estoqueAtual);
+      produtos.push({
+        id: crypto.randomUUID(),
+        nome: item.nome,
+        estoqueAtual,
+        estoqueMinimo: item.estoqueMinimo === null ? 0 : arredondar2(item.estoqueMinimo),
+        estoqueInicial: estoqueAtual,
+        comprasNotas: 0,
+        fornecedorIds: fornecedorIds || [],
+        marcas: item.marcas || [],
+      });
+      criados++;
+    }
+  });
+
+  salvarProdutos(produtos);
+  if (fornecedoresCriados > 0) salvarFornecedores(fornecedores);
+
+  const sufixoFornecedores = fornecedoresCriados > 0 ? `, ${fornecedoresCriados} fornecedor(es) novo(s)` : '';
+  mostrarToast(`Importação concluída: ${criados} produto(s) novo(s), ${atualizados} atualizado(s)${sufixoFornecedores}.`);
+
+  itensImportProdutos = [];
+  arquivoImportProdutosSelecionado = null;
+  inputArquivoImportProdutos.value = '';
+  nomeArquivoImportProdutosEl.classList.add('hidden');
+  btnProcessarImportProdutos.disabled = true;
+
+  renderizarRevisaoImportProdutos();
+  renderizarCadastro();
+  renderizarContagem();
+  renderizarFornecedores();
+}
+
+if (linkModeloImportProdutos) {
+  linkModeloImportProdutos.addEventListener('click', (e) => {
+    e.preventDefault();
+    const abaProdutos = XLSX.utils.aoa_to_sheet([
+      ['Nome', 'Estoque Atual', 'Estoque Mínimo', 'Fornecedores', 'Marcas'],
+      ['Arroz 5kg', 10, 5, 'Distribuidora Central', ''],
+      ['Queijo Mussarela', 2, 10, 'Distribuidora Central, Atacadão Sul', 'Tirolez, Polenghi'],
+    ]);
+    const abaFornecedores = XLSX.utils.aoa_to_sheet([
+      ['Nome', 'Contato', 'Observação'],
+      ['Distribuidora Central', '(11) 99999-0001', 'Bom preço em grãos'],
+      ['Atacadão Sul', '(11) 99999-0002', ''],
+    ]);
+    const pasta = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(pasta, abaProdutos, 'Produtos');
+    XLSX.utils.book_append_sheet(pasta, abaFornecedores, 'Fornecedores');
+    XLSX.writeFile(pasta, 'modelo-importacao-produtos-fornecedores.xlsx');
+  });
+}
+
 // ===================== Fornecedores =====================
 const formFornecedor = document.getElementById('form-fornecedor');
 const inputFornecedorNome = document.getElementById('input-fornecedor-nome');
@@ -528,6 +748,172 @@ function salvarEdicaoFornecedor(id) {
   renderizarFornecedores();
   renderizarCadastro();
   mostrarToast('Fornecedor atualizado!');
+}
+
+// ===================== Importar/Atualizar Fornecedores via Planilha =====================
+const dropzoneImportFornecedores = document.getElementById('dropzone-import-fornecedores');
+const inputArquivoImportFornecedores = document.getElementById('input-arquivo-import-fornecedores');
+const nomeArquivoImportFornecedoresEl = document.getElementById('nome-arquivo-import-fornecedores');
+const btnProcessarImportFornecedores = document.getElementById('btn-processar-import-fornecedores');
+const secaoRevisaoImportFornecedores = document.getElementById('secao-revisao-import-fornecedores');
+const tabelaRevisaoImportFornecedores = document.getElementById('tabela-revisao-import-fornecedores');
+
+let arquivoImportFornecedoresSelecionado = null;
+let itensImportFornecedores = []; // { nome, fornecedorExistenteId, contato, observacao }
+
+dropzoneImportFornecedores.addEventListener('click', () => inputArquivoImportFornecedores.click());
+dropzoneImportFornecedores.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropzoneImportFornecedores.classList.add('dragover');
+});
+dropzoneImportFornecedores.addEventListener('dragleave', () => dropzoneImportFornecedores.classList.remove('dragover'));
+dropzoneImportFornecedores.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzoneImportFornecedores.classList.remove('dragover');
+  if (e.dataTransfer.files.length) definirArquivoImportFornecedoresSelecionado(e.dataTransfer.files[0]);
+});
+inputArquivoImportFornecedores.addEventListener('change', () => {
+  if (inputArquivoImportFornecedores.files.length) {
+    definirArquivoImportFornecedoresSelecionado(inputArquivoImportFornecedores.files[0]);
+  }
+});
+
+function definirArquivoImportFornecedoresSelecionado(arquivo) {
+  if (!ehArquivoPlanilha(arquivo)) {
+    mostrarToast('Formato não suportado. Envie uma planilha (XLSX/XLS/CSV).');
+    return;
+  }
+  arquivoImportFornecedoresSelecionado = arquivo;
+  nomeArquivoImportFornecedoresEl.textContent = `Selecionado: ${arquivo.name}`;
+  nomeArquivoImportFornecedoresEl.classList.remove('hidden');
+  btnProcessarImportFornecedores.disabled = false;
+}
+
+btnProcessarImportFornecedores.addEventListener('click', processarImportacaoFornecedores);
+
+async function processarImportacaoFornecedores() {
+  if (!arquivoImportFornecedoresSelecionado) return;
+
+  if (typeof XLSX === 'undefined') {
+    mostrarToast('Biblioteca de planilhas não carregada. Verifique sua conexão com a internet.');
+    return;
+  }
+
+  btnProcessarImportFornecedores.disabled = true;
+
+  try {
+    const bufferArray = await arquivoImportFornecedoresSelecionado.arrayBuffer();
+    const pasta = XLSX.read(bufferArray, { type: 'array' });
+    const planilha = selecionarAbaPlanilha(pasta, 'fornecedor');
+    const linhas = XLSX.utils.sheet_to_json(planilha, { header: 1, raw: false, defval: '' });
+
+    if (linhas.length === 0) {
+      mostrarToast('Planilha vazia.');
+      return;
+    }
+
+    const cabecalho = linhas[0];
+    const colNome = encontrarColuna(cabecalho, ['nome', 'fornecedor']);
+    const colContato = encontrarColuna(cabecalho, ['contato', 'telefone', 'whatsapp', 'email', 'e-mail']);
+    const colObs = encontrarColuna(cabecalho, ['observacao', 'obs', 'nota']);
+
+    if (colNome === -1) {
+      mostrarToast('Não encontrei uma coluna "Nome" na planilha. Confira o cabeçalho na 1ª linha.');
+      return;
+    }
+
+    itensImportFornecedores = linhas
+      .slice(1)
+      .map((linha) => {
+        const nome = String(linha[colNome] ?? '').trim();
+        if (!nome) return null;
+
+        const fornecedorExistente = fornecedores.find((f) => normalizarTexto(f.nome) === normalizarTexto(nome));
+        const contatoTexto = colContato !== -1 ? String(linha[colContato] ?? '').trim() : '';
+        const obsTexto = colObs !== -1 ? String(linha[colObs] ?? '').trim() : '';
+
+        return {
+          nome,
+          fornecedorExistenteId: fornecedorExistente ? fornecedorExistente.id : null,
+          contato: contatoTexto || null,
+          observacao: obsTexto || null,
+        };
+      })
+      .filter(Boolean);
+
+    if (itensImportFornecedores.length === 0) {
+      mostrarToast('Nenhuma linha válida encontrada (confira a coluna Nome).');
+    } else {
+      mostrarToast(`${itensImportFornecedores.length} linha(s) lida(s). Confira antes de importar.`);
+    }
+
+    renderizarRevisaoImportFornecedores();
+  } catch (erro) {
+    console.error(erro);
+    mostrarToast('Erro ao ler a planilha. Verifique se o arquivo é um .xlsx, .xls ou .csv válido.');
+  } finally {
+    btnProcessarImportFornecedores.disabled = false;
+  }
+}
+
+function renderizarRevisaoImportFornecedores() {
+  tabelaRevisaoImportFornecedores.innerHTML = '';
+  secaoRevisaoImportFornecedores.classList.toggle('hidden', itensImportFornecedores.length === 0);
+
+  itensImportFornecedores.forEach((item) => {
+    const acao = item.fornecedorExistenteId ? 'Atualizar' : 'Novo';
+    const corAcao = item.fornecedorExistenteId ? 'text-blue-600' : 'text-green-600';
+
+    const tr = document.createElement('tr');
+    tr.className = 'border-b last:border-0';
+    tr.innerHTML = `
+      <td class="py-2 pr-2 font-medium">${escapeHtml(item.nome)}</td>
+      <td class="py-2 pr-2 font-semibold ${corAcao}">${acao}</td>
+      <td class="py-2 pr-2 text-gray-500">${item.contato === null ? '—' : escapeHtml(item.contato)}</td>
+      <td class="py-2 pr-2 text-gray-500">${item.observacao === null ? '—' : escapeHtml(item.observacao)}</td>
+    `;
+    tabelaRevisaoImportFornecedores.appendChild(tr);
+  });
+}
+
+document.getElementById('btn-confirmar-import-fornecedores').addEventListener('click', confirmarImportacaoFornecedores);
+
+/** Cria fornecedores novos e atualiza os existentes (casados pelo nome); campos em branco não são tocados. */
+function confirmarImportacaoFornecedores() {
+  if (itensImportFornecedores.length === 0) return;
+
+  let criados = 0;
+  let atualizados = 0;
+
+  itensImportFornecedores.forEach((item) => {
+    if (item.fornecedorExistenteId) {
+      const fornecedor = fornecedores.find((f) => f.id === item.fornecedorExistenteId);
+      if (item.contato !== null) fornecedor.contato = item.contato;
+      if (item.observacao !== null) fornecedor.observacao = item.observacao;
+      atualizados++;
+    } else {
+      fornecedores.push({
+        id: crypto.randomUUID(),
+        nome: item.nome,
+        contato: item.contato || '',
+        observacao: item.observacao || '',
+      });
+      criados++;
+    }
+  });
+
+  salvarFornecedores(fornecedores);
+  mostrarToast(`Importação concluída: ${criados} fornecedor(es) novo(s), ${atualizados} atualizado(s).`);
+
+  itensImportFornecedores = [];
+  arquivoImportFornecedoresSelecionado = null;
+  inputArquivoImportFornecedores.value = '';
+  nomeArquivoImportFornecedoresEl.classList.add('hidden');
+  btnProcessarImportFornecedores.disabled = true;
+
+  renderizarRevisaoImportFornecedores();
+  renderizarFornecedores();
+  renderizarCadastro();
 }
 
 // ===================== Contagem do Dia =====================
@@ -1678,6 +2064,28 @@ function formatarNumero(valor) {
 /** Seleciona todo o conteúdo do campo ao focar, para digitar por cima sem precisar apagar antes (útil no celular). */
 function selecionarConteudoAoFocar(input) {
   input.addEventListener('focus', () => input.select());
+}
+
+/** Como paraNumero, mas retorna null (em vez de NaN) para "vazio" — útil pra distinguir "não informado" de zero. */
+function paraNumeroOuNull(texto) {
+  if (texto === null || texto === undefined || String(texto).trim() === '') return null;
+  const numero = paraNumero(texto);
+  return Number.isNaN(numero) ? null : numero;
+}
+
+/** Acha o índice da 1ª coluna do cabeçalho cujo texto (sem acento/caixa) contém alguma das palavras-chave. */
+function encontrarColuna(cabecalho, palavrasChave) {
+  const normalizado = (cabecalho || []).map((c) => normalizarTexto(String(c ?? '')));
+  return normalizado.findIndex((c) => palavrasChave.some((p) => c.includes(p)));
+}
+
+/**
+ * Escolhe a aba de uma planilha (workbook) pelo nome (ex: "produto" casa com "Produtos").
+ * Sem nenhuma aba com esse nome, usa a primeira — assim uma planilha de uma aba só continua funcionando.
+ */
+function selecionarAbaPlanilha(pasta, palavraChave) {
+  const nomeAba = pasta.SheetNames.find((nome) => normalizarTexto(nome).includes(palavraChave));
+  return pasta.Sheets[nomeAba || pasta.SheetNames[0]];
 }
 
 // ===================== Inicialização =====================

@@ -99,6 +99,63 @@
           <p id="cadastro-vazio" class="text-gray-400 text-sm py-4 hidden">Nenhum produto cadastrado ainda.</p>
         </div>
       </div>
+
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-lg font-semibold mb-1">Importar/Atualizar Produtos via Planilha</h2>
+        <p class="text-sm text-gray-500 mb-2">
+          Cadastre vários produtos de uma vez ou atualize os já existentes (identificados pelo nome) sem precisar
+          incluir um por um. Fornecedores citados na coluna "Fornecedores" que ainda não existirem são criados
+          automaticamente.
+        </p>
+        <p class="text-xs text-gray-400 mb-4">
+          Use cabeçalho na 1ª linha com as colunas: <strong>Nome</strong> (obrigatório), Estoque Atual, Estoque
+          Mínimo, Fornecedores (separe por vírgula), Marcas (separe por vírgula). Campos em branco na planilha não
+          alteram o que já está cadastrado. Se a planilha tiver várias abas, a aba chamada "Produtos" é usada (senão,
+          a primeira aba).
+          <a id="link-modelo-import-produtos" href="#" class="text-blue-600 hover:underline">Baixar modelo (.xlsx)</a>
+        </p>
+
+        <input type="file" id="input-arquivo-import-produtos"
+          accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          class="hidden" />
+        <div id="dropzone-import-produtos" class="dropzone">
+          <p class="text-gray-500 text-sm">📎 Clique ou arraste aqui a planilha (XLSX/XLS/CSV) de produtos</p>
+          <p id="nome-arquivo-import-produtos" class="text-sm font-medium text-blue-600 mt-2 hidden"></p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 mt-4">
+          <button id="btn-processar-import-produtos" disabled
+            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-5 py-2 rounded-lg shadow transition">
+            🔍 Processar Planilha
+          </button>
+        </div>
+
+        <div id="secao-revisao-import-produtos" class="mt-5 hidden">
+          <h3 class="text-sm font-semibold mb-1">Confira antes de importar</h3>
+          <p class="text-xs text-gray-500 mb-3">
+            "Novo" cria o produto; "Atualizar" altera o produto já cadastrado com esse nome.
+          </p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-gray-500 border-b">
+                  <th class="py-2 pr-2">Nome</th>
+                  <th class="py-2 pr-2">Ação</th>
+                  <th class="py-2 pr-2">Estoque Atual</th>
+                  <th class="py-2 pr-2">Estoque Mínimo</th>
+                  <th class="py-2 pr-2">Fornecedores</th>
+                  <th class="py-2 pr-2">Marcas</th>
+                </tr>
+              </thead>
+              <tbody id="tabela-revisao-import-produtos"></tbody>
+            </table>
+          </div>
+          <button id="btn-confirmar-import-produtos"
+            class="mt-4 bg-green-600 hover:bg-green-700 text-white font-medium px-5 py-2 rounded-lg shadow transition">
+            ✅ Confirmar Importação
+          </button>
+        </div>
+      </div>
     </section>
 
     <!-- ===================== ABA: FORNECEDORES ===================== -->
@@ -145,6 +202,58 @@
             <tbody id="tabela-fornecedores"></tbody>
           </table>
           <p id="fornecedores-vazio" class="text-gray-400 text-sm py-4 hidden">Nenhum fornecedor cadastrado ainda.</p>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-lg font-semibold mb-1">Importar/Atualizar Fornecedores via Planilha</h2>
+        <p class="text-sm text-gray-500 mb-2">
+          Cadastre vários fornecedores de uma vez ou atualize os já existentes (identificados pelo nome) sem precisar
+          incluir um por um.
+        </p>
+        <p class="text-xs text-gray-400 mb-4">
+          Use cabeçalho na 1ª linha com as colunas: <strong>Nome</strong> (obrigatório), Contato, Observação. Campos
+          em branco na planilha não alteram o que já está cadastrado. Se a planilha tiver várias abas, a aba chamada
+          "Fornecedores" é usada (senão, a primeira aba) — pode ser o mesmo arquivo usado para importar produtos.
+        </p>
+
+        <input type="file" id="input-arquivo-import-fornecedores"
+          accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          class="hidden" />
+        <div id="dropzone-import-fornecedores" class="dropzone">
+          <p class="text-gray-500 text-sm">📎 Clique ou arraste aqui a planilha (XLSX/XLS/CSV) de fornecedores</p>
+          <p id="nome-arquivo-import-fornecedores" class="text-sm font-medium text-blue-600 mt-2 hidden"></p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 mt-4">
+          <button id="btn-processar-import-fornecedores" disabled
+            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-5 py-2 rounded-lg shadow transition">
+            🔍 Processar Planilha
+          </button>
+        </div>
+
+        <div id="secao-revisao-import-fornecedores" class="mt-5 hidden">
+          <h3 class="text-sm font-semibold mb-1">Confira antes de importar</h3>
+          <p class="text-xs text-gray-500 mb-3">
+            "Novo" cria o fornecedor; "Atualizar" altera o fornecedor já cadastrado com esse nome.
+          </p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-gray-500 border-b">
+                  <th class="py-2 pr-2">Nome</th>
+                  <th class="py-2 pr-2">Ação</th>
+                  <th class="py-2 pr-2">Contato</th>
+                  <th class="py-2 pr-2">Observação</th>
+                </tr>
+              </thead>
+              <tbody id="tabela-revisao-import-fornecedores"></tbody>
+            </table>
+          </div>
+          <button id="btn-confirmar-import-fornecedores"
+            class="mt-4 bg-green-600 hover:bg-green-700 text-white font-medium px-5 py-2 rounded-lg shadow transition">
+            ✅ Confirmar Importação
+          </button>
         </div>
       </div>
     </section>
