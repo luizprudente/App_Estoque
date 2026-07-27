@@ -21,6 +21,9 @@
       <button data-tab="cadastro" class="tab-btn px-4 py-2 rounded-lg font-medium bg-blue-600 text-white shadow">
         Cadastro de Produtos
       </button>
+      <button data-tab="fornecedores" class="tab-btn px-4 py-2 rounded-lg font-medium bg-white text-gray-700 hover:bg-gray-50 shadow">
+        Fornecedores
+      </button>
       <button data-tab="contagem" class="tab-btn px-4 py-2 rounded-lg font-medium bg-white text-gray-700 hover:bg-gray-50 shadow">
         Contagem do Dia
       </button>
@@ -56,6 +59,10 @@
               class="w-full rounded-lg border-gray-300 border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div class="sm:col-span-4">
+            <label class="block text-sm font-medium text-gray-600 mb-1">Principais Fornecedores (opcional)</label>
+            <div id="checklist-fornecedores-novo-produto" class="border border-gray-200 rounded-lg p-3 max-h-32 overflow-y-auto"></div>
+          </div>
+          <div class="sm:col-span-4">
             <button type="submit"
               class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2 rounded-lg shadow transition">
               + Adicionar Produto
@@ -73,12 +80,61 @@
                 <th class="py-2 pr-2">Nome</th>
                 <th class="py-2 pr-2">Estoque Atual</th>
                 <th class="py-2 pr-2">Estoque Mínimo</th>
+                <th class="py-2 pr-2">Fornecedores</th>
                 <th class="py-2 pr-2 text-right">Ações</th>
               </tr>
             </thead>
             <tbody id="tabela-cadastro"></tbody>
           </table>
           <p id="cadastro-vazio" class="text-gray-400 text-sm py-4 hidden">Nenhum produto cadastrado ainda.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ABA: FORNECEDORES ===================== -->
+    <section id="tab-fornecedores" class="tab-panel space-y-6 hidden">
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-lg font-semibold mb-4">Novo Fornecedor</h2>
+        <form id="form-fornecedor" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+          <div class="sm:col-span-2">
+            <label class="block text-sm font-medium text-gray-600 mb-1" for="input-fornecedor-nome">Nome</label>
+            <input id="input-fornecedor-nome" type="text" required placeholder="Ex: Distribuidora Central"
+              class="w-full rounded-lg border-gray-300 border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1" for="input-fornecedor-contato">Contato (opcional)</label>
+            <input id="input-fornecedor-contato" type="text" placeholder="Telefone, WhatsApp ou e-mail"
+              class="w-full rounded-lg border-gray-300 border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1" for="input-fornecedor-obs">Observação (opcional)</label>
+            <input id="input-fornecedor-obs" type="text" placeholder="Ex: bom preço em grãos"
+              class="w-full rounded-lg border-gray-300 border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
+          <div class="sm:col-span-4">
+            <button type="submit"
+              class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2 rounded-lg shadow transition">
+              + Adicionar Fornecedor
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-lg font-semibold mb-4">Fornecedores Cadastrados</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 border-b">
+                <th class="py-2 pr-2">Nome</th>
+                <th class="py-2 pr-2">Contato</th>
+                <th class="py-2 pr-2">Observação</th>
+                <th class="py-2 pr-2 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-fornecedores"></tbody>
+          </table>
+          <p id="fornecedores-vazio" class="text-gray-400 text-sm py-4 hidden">Nenhum fornecedor cadastrado ainda.</p>
         </div>
       </div>
     </section>

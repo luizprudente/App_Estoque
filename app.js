@@ -2,12 +2,14 @@
 const PRODUTOS_KEY = 'estoque_produtos';
 const NOTAS_KEY = 'estoque_notas';
 const PERIODO_KEY = 'estoque_periodo';
+const FORNECEDORES_KEY = 'estoque_fornecedores';
 
 /**
  * @typedef {{ id: string, nome: string, estoqueAtual: number, estoqueMinimo: number,
- *   estoqueInicial: number, comprasNotas: number }} Produto
+ *   estoqueInicial: number, comprasNotas: number, fornecedorIds: string[] }} Produto
  * @typedef {{ id: string, data: string, arquivoNome: string,
  *   itens: { produtoId: string, nome: string, quantidade: number }[] }} Nota
+ * @typedef {{ id: string, nome: string, contato: string, observacao: string }} Fornecedor
  */
 
 // ===================== Carregamento e Persistência =====================
@@ -32,6 +34,10 @@ function migrarProdutos(lista) {
       p.comprasNotas = 0;
       alterado = true;
     }
+    if (!Array.isArray(p.fornecedorIds)) {
+      p.fornecedorIds = [];
+      alterado = true;
+    }
   });
   if (alterado) salvarProdutos(lista);
   return lista;
@@ -39,6 +45,19 @@ function migrarProdutos(lista) {
 
 function salvarProdutos(lista) {
   localStorage.setItem(PRODUTOS_KEY, JSON.stringify(lista));
+}
+
+function carregarFornecedores() {
+  try {
+    const dados = localStorage.getItem(FORNECEDORES_KEY);
+    return dados ? JSON.parse(dados) : [];
+  } catch {
+    return [];
+  }
+}
+
+function salvarFornecedores(lista) {
+  localStorage.setItem(FORNECEDORES_KEY, JSON.stringify(lista));
 }
 
 function carregarNotas() {
@@ -70,6 +89,7 @@ function salvarPeriodo(periodo) {
 let produtos = migrarProdutos(carregarProdutos());
 let notas = carregarNotas();
 let periodo = carregarPeriodo();
+let fornecedores = carregarFornecedores();
 let ultimaListaCompras = [];
 
 if (typeof pdfjsLib !== 'undefined') {
@@ -98,6 +118,7 @@ function ativarAba(nomeAba) {
   });
 
   if (nomeAba === 'cadastro') renderizarCadastro();
+  if (nomeAba === 'fornecedores') renderizarFornecedores();
   if (nomeAba === 'contagem') renderizarContagem();
   if (nomeAba === 'entrada') renderizarHistoricoNotas();
   if (nomeAba === 'relatorio') renderizarRelatorio();
@@ -120,9 +141,34 @@ const inputAtual = document.getElementById('input-atual');
 const inputMinimo = document.getElementById('input-minimo');
 const tabelaCadastro = document.getElementById('tabela-cadastro');
 const cadastroVazio = document.getElementById('cadastro-vazio');
+const checklistFornecedoresNovoProduto = document.getElementById('checklist-fornecedores-novo-produto');
 
 selecionarConteudoAoFocar(inputAtual);
 selecionarConteudoAoFocar(inputMinimo);
+
+/** Preenche um container com uma checkbox por fornecedor cadastrado. */
+function renderizarChecklistFornecedores(container, idsSelecionados) {
+  if (!container) return;
+  if (fornecedores.length === 0) {
+    container.innerHTML = '<p class="text-xs text-gray-400">Nenhum fornecedor cadastrado ainda. Cadastre na aba "Fornecedores".</p>';
+    return;
+  }
+  container.innerHTML = fornecedores
+    .map(
+      (f) => `
+      <label class="flex items-center gap-2 text-sm py-1">
+        <input type="checkbox" value="${f.id}" class="checkbox-fornecedor" ${idsSelecionados.includes(f.id) ? 'checked' : ''} />
+        <span>${escapeHtml(f.nome)}</span>
+      </label>
+    `
+    )
+    .join('');
+}
+
+function obterFornecedoresSelecionados(container) {
+  if (!container) return [];
+  return Array.from(container.querySelectorAll('.checkbox-fornecedor:checked')).map((cb) => cb.value);
+}
 
 formProduto.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -136,6 +182,8 @@ formProduto.addEventListener('submit', (e) => {
     return;
   }
 
+  const fornecedorIds = obterFornecedoresSelecionados(checklistFornecedoresNovoProduto);
+
   produtos.push({
     id: crypto.randomUUID(),
     nome,
@@ -143,6 +191,7 @@ formProduto.addEventListener('submit', (e) => {
     estoqueMinimo,
     estoqueInicial: estoqueAtual,
     comprasNotas: 0,
+    fornecedorIds,
   });
 
   salvarProdutos(produtos);
@@ -167,6 +216,7 @@ function criarProdutoRapido(nomeSugerido) {
     estoqueMinimo,
     estoqueInicial: 0,
     comprasNotas: 0,
+    fornecedorIds: [],
   };
 
   produtos.push(novoProduto);
@@ -178,6 +228,8 @@ function criarProdutoRapido(nomeSugerido) {
 let produtoEmEdicaoId = null;
 
 function renderizarCadastro() {
+  renderizarChecklistFornecedores(checklistFornecedoresNovoProduto, []);
+
   tabelaCadastro.innerHTML = '';
   cadastroVazio.classList.toggle('hidden', produtos.length > 0);
 
@@ -199,19 +251,30 @@ function renderizarCadastro() {
           <input type="text" inputmode="decimal" value="${formatarNumero(produto.estoqueMinimo)}" data-campo="minimo"
             class="input-edicao-cadastro w-24 rounded-lg border-gray-300 border px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
         </td>
+        <td class="py-2 pr-2">
+          <div id="checklist-edicao-fornecedores" class="border border-gray-200 rounded-lg p-2 max-h-24 overflow-y-auto max-w-[180px]"></div>
+        </td>
         <td class="py-2 pr-2 text-right whitespace-nowrap">
           <button class="text-green-600 hover:text-green-800 text-xs font-medium mr-2" data-salvar="${produto.id}">Salvar</button>
           <button class="text-gray-500 hover:text-gray-700 text-xs font-medium" data-cancelar>Cancelar</button>
         </td>
       `;
       tabelaCadastro.appendChild(tr);
+      renderizarChecklistFornecedores(document.getElementById('checklist-edicao-fornecedores'), produto.fornecedorIds || []);
       return;
     }
+
+    const nomesFornecedores = (produto.fornecedorIds || [])
+      .map((id) => fornecedores.find((f) => f.id === id))
+      .filter(Boolean)
+      .map((f) => escapeHtml(f.nome))
+      .join(', ');
 
     tr.innerHTML = `
       <td class="py-2 pr-2 font-medium">${escapeHtml(produto.nome)}</td>
       <td class="py-2 pr-2">${formatarNumero(produto.estoqueAtual)}</td>
       <td class="py-2 pr-2">${formatarNumero(produto.estoqueMinimo)}</td>
+      <td class="py-2 pr-2 text-gray-500">${nomesFornecedores || '—'}</td>
       <td class="py-2 pr-2 text-right whitespace-nowrap">
         <button class="text-blue-600 hover:text-blue-800 text-xs font-medium mr-2" data-editar="${produto.id}">
           Editar
@@ -271,12 +334,161 @@ function salvarEdicaoProduto(id) {
   produto.nome = nome;
   produto.estoqueAtual = arredondar2(estoqueAtual);
   produto.estoqueMinimo = arredondar2(estoqueMinimo);
+  produto.fornecedorIds = obterFornecedoresSelecionados(document.getElementById('checklist-edicao-fornecedores'));
 
   salvarProdutos(produtos);
   produtoEmEdicaoId = null;
   renderizarCadastro();
   renderizarContagem();
   mostrarToast('Produto atualizado!');
+}
+
+// ===================== Fornecedores =====================
+const formFornecedor = document.getElementById('form-fornecedor');
+const inputFornecedorNome = document.getElementById('input-fornecedor-nome');
+const inputFornecedorContato = document.getElementById('input-fornecedor-contato');
+const inputFornecedorObs = document.getElementById('input-fornecedor-obs');
+const tabelaFornecedores = document.getElementById('tabela-fornecedores');
+const fornecedoresVazio = document.getElementById('fornecedores-vazio');
+
+let fornecedorEmEdicaoId = null;
+
+formFornecedor.addEventListener('submit', (e) => {
+  e.preventDefault();
+
+  const nome = inputFornecedorNome.value.trim();
+  if (!nome) {
+    mostrarToast('Preencha o nome do fornecedor.');
+    return;
+  }
+
+  fornecedores.push({
+    id: crypto.randomUUID(),
+    nome,
+    contato: inputFornecedorContato.value.trim(),
+    observacao: inputFornecedorObs.value.trim(),
+  });
+
+  salvarFornecedores(fornecedores);
+  formFornecedor.reset();
+  inputFornecedorNome.focus();
+  renderizarFornecedores();
+  mostrarToast('Fornecedor adicionado!');
+});
+
+function renderizarFornecedores() {
+  tabelaFornecedores.innerHTML = '';
+  fornecedoresVazio.classList.toggle('hidden', fornecedores.length > 0);
+
+  fornecedores.forEach((fornecedor) => {
+    const tr = document.createElement('tr');
+    tr.className = 'border-b last:border-0';
+
+    if (fornecedor.id === fornecedorEmEdicaoId) {
+      tr.innerHTML = `
+        <td class="py-2 pr-2">
+          <input type="text" value="${escapeHtml(fornecedor.nome)}" data-campo="nome"
+            class="input-edicao-fornecedor w-full rounded-lg border-gray-300 border px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </td>
+        <td class="py-2 pr-2">
+          <input type="text" value="${escapeHtml(fornecedor.contato)}" data-campo="contato"
+            class="input-edicao-fornecedor w-full rounded-lg border-gray-300 border px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </td>
+        <td class="py-2 pr-2">
+          <input type="text" value="${escapeHtml(fornecedor.observacao)}" data-campo="observacao"
+            class="input-edicao-fornecedor w-full rounded-lg border-gray-300 border px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </td>
+        <td class="py-2 pr-2 text-right whitespace-nowrap">
+          <button class="text-green-600 hover:text-green-800 text-xs font-medium mr-2" data-salvar-fornecedor="${fornecedor.id}">Salvar</button>
+          <button class="text-gray-500 hover:text-gray-700 text-xs font-medium" data-cancelar-fornecedor>Cancelar</button>
+        </td>
+      `;
+      tabelaFornecedores.appendChild(tr);
+      return;
+    }
+
+    tr.innerHTML = `
+      <td class="py-2 pr-2 font-medium">${escapeHtml(fornecedor.nome)}</td>
+      <td class="py-2 pr-2 text-gray-500">${escapeHtml(fornecedor.contato) || '—'}</td>
+      <td class="py-2 pr-2 text-gray-500">${escapeHtml(fornecedor.observacao) || '—'}</td>
+      <td class="py-2 pr-2 text-right whitespace-nowrap">
+        <button class="text-blue-600 hover:text-blue-800 text-xs font-medium mr-2" data-editar-fornecedor="${fornecedor.id}">
+          Editar
+        </button>
+        <button class="text-red-500 hover:text-red-700 text-xs font-medium" data-excluir-fornecedor="${fornecedor.id}">
+          Excluir
+        </button>
+      </td>
+    `;
+    tabelaFornecedores.appendChild(tr);
+  });
+
+  tabelaFornecedores.querySelectorAll('[data-editar-fornecedor]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      fornecedorEmEdicaoId = btn.dataset.editarFornecedor;
+      renderizarFornecedores();
+    });
+  });
+
+  tabelaFornecedores.querySelectorAll('[data-cancelar-fornecedor]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      fornecedorEmEdicaoId = null;
+      renderizarFornecedores();
+    });
+  });
+
+  tabelaFornecedores.querySelectorAll('[data-salvar-fornecedor]').forEach((btn) => {
+    btn.addEventListener('click', () => salvarEdicaoFornecedor(btn.dataset.salvarFornecedor));
+  });
+
+  tabelaFornecedores.querySelectorAll('[data-excluir-fornecedor]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.excluirFornecedor;
+      if (!confirm('Excluir este fornecedor? Ele também será removido dos produtos vinculados.')) return;
+
+      fornecedores = fornecedores.filter((f) => f.id !== id);
+      salvarFornecedores(fornecedores);
+
+      // Remove a referência órfã dos produtos que tinham esse fornecedor selecionado.
+      let produtosAlterados = false;
+      produtos.forEach((produto) => {
+        if (produto.fornecedorIds && produto.fornecedorIds.includes(id)) {
+          produto.fornecedorIds = produto.fornecedorIds.filter((fid) => fid !== id);
+          produtosAlterados = true;
+        }
+      });
+      if (produtosAlterados) salvarProdutos(produtos);
+
+      renderizarFornecedores();
+      renderizarCadastro();
+      mostrarToast('Fornecedor excluído.');
+    });
+  });
+}
+
+function salvarEdicaoFornecedor(id) {
+  const fornecedor = fornecedores.find((f) => f.id === id);
+  if (!fornecedor) return;
+
+  const linha = tabelaFornecedores.querySelector(`[data-salvar-fornecedor="${id}"]`).closest('tr');
+  const nome = linha.querySelector('[data-campo="nome"]').value.trim();
+  const contato = linha.querySelector('[data-campo="contato"]').value.trim();
+  const observacao = linha.querySelector('[data-campo="observacao"]').value.trim();
+
+  if (!nome) {
+    mostrarToast('Preencha o nome do fornecedor.');
+    return;
+  }
+
+  fornecedor.nome = nome;
+  fornecedor.contato = contato;
+  fornecedor.observacao = observacao;
+
+  salvarFornecedores(fornecedores);
+  fornecedorEmEdicaoId = null;
+  renderizarFornecedores();
+  renderizarCadastro();
+  mostrarToast('Fornecedor atualizado!');
 }
 
 // ===================== Contagem do Dia =====================
@@ -1242,6 +1454,7 @@ function selecionarConteudoAoFocar(input) {
 
 // ===================== Inicialização =====================
 renderizarCadastro();
+renderizarFornecedores();
 renderizarContagem();
 renderizarHistoricoNotas();
 renderizarRelatorio();
