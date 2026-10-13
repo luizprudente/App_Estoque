@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Gire e Ganhe — Di Forni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,700;6..96,900&family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+/* Mesa de cassino: feltro verde, filete dourado, fichas vermelho/preto. Coluna única, pensada para celular. */
+:root {
+  --felt: #0d4a2f; --felt-deep: #08321f; --red: #c8102e; --black: #141414;
+  --gold: #e3b74a; --ink: #f6f1e4; --muted: #b9cbbf; --erro: #ff8a9a;
+  --font-display: "Bodoni Moda", Georgia, "Times New Roman", serif;
+  --font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; background: var(--felt);
+  background-image: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.08), transparent 60%);
+  color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.5;
+  padding-inline: 16px;
+  padding-block: calc(24px + env(safe-area-inset-top, 0px)) calc(40px + env(safe-area-inset-bottom, 0px));
+}
+[hidden] { display: none !important; }
+.mesa { max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+.marca { text-align: center; display: flex; flex-direction: column; gap: 4px; }
+.marca .eyebrow { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+.marca h1 { font-family: var(--font-display); font-weight: 900; font-size: clamp(30px, 9vw, 42px); line-height: 1.05; margin: 0; }
+
+.etapas { display: flex; justify-content: center; gap: 8px; list-style: none; padding: 0; margin: 0; }
+.etapas li { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; border: 2px dashed var(--muted); color: var(--muted); }
+.etapas li.ativa { background: var(--red); border-color: var(--ink); color: var(--ink); }
+.etapas li.feita { background: var(--black); border-color: var(--gold); color: var(--gold); }
+
+.cartao { background: var(--felt-deep); border: 1px solid rgba(227,183,74,.45); border-radius: 18px; padding: 24px 20px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 18px 40px rgba(0,0,0,.35); }
+.cartao h2 { font-family: var(--font-display); font-weight: 700; font-size: 24px; margin: 0; text-wrap: balance; }
+.cartao p { margin: 0; color: var(--muted); }
+
+.campo { display: flex; flex-direction: column; gap: 6px; }
+.campo label { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.campo input { font: inherit; font-size: 17px; padding: 14px; border-radius: 10px; border: 2px solid rgba(246,241,228,.2); background: rgba(0,0,0,.25); color: var(--ink); outline: none; width: 100%; }
+.campo input:focus { border-color: var(--gold); }
+.campo input[aria-invalid="true"] { border-color: var(--red); }
+.erro { font-size: 13px; color: var(--erro); min-height: 1em; }
+.consent { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted); }
+.consent input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--red); flex: none; }
+details { font-size: 13px; color: var(--muted); }
+details summary { cursor: pointer; color: var(--gold); }
+details p { margin-top: 8px !important; }
+
+.btn { font: inherit; font-weight: 700; font-size: 17px; border: 0; border-radius: 12px; padding: 16px 18px; cursor: pointer; text-align: center; text-decoration: none; display: block; width: 100%; transition: transform .12s ease, filter .12s ease; }
+.btn:active { transform: scale(.98); }
+.btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.btn-red { background: var(--red); color: var(--ink); box-shadow: 0 4px 0 #7d0a1d; }
+.btn-ghost { background: transparent; color: var(--ink); border: 2px solid rgba(246,241,228,.35); font-size: 15px; }
+.btn[disabled] { filter: grayscale(.8) brightness(.7); cursor: not-allowed; }
+.dica { font-size: 13px; text-align: center; color: var(--muted); }
+
+.roda-wrap { position: relative; width: 100%; max-width: 380px; aspect-ratio: 1; margin: 0 auto; }
+.roda-wrap canvas { width: 100%; height: 100%; display: block; border-radius: 50%; box-shadow: 0 0 0 8px var(--black), 0 0 0 11px var(--gold), 0 20px 40px rgba(0,0,0,.5); }
+.ponteiro { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); border-left: 18px solid transparent; border-right: 18px solid transparent; border-top: 34px solid var(--gold); filter: drop-shadow(0 3px 2px rgba(0,0,0,.5)); z-index: 2; }
+.miolo { position: absolute; inset: 0; margin: auto; width: 26%; aspect-ratio: 1; border-radius: 50%; background: var(--black); border: 4px solid var(--gold); display: grid; place-items: center; font-family: var(--font-display); font-weight: 900; color: var(--gold); font-size: clamp(16px, 5vw, 22px); z-index: 1; }
+
+.resultado { text-align: center; }
+.resultado .premio { font-family: var(--font-display); font-weight: 900; font-size: clamp(30px, 9vw, 40px); color: var(--gold); line-height: 1.1; animation: pisca 1s ease-in-out infinite alternate; }
+.resultado .codigo { font-variant-numeric: tabular-nums; letter-spacing: .14em; font-weight: 700; font-size: 24px; background: var(--black); border: 2px dashed var(--gold); border-radius: 10px; padding: 12px; user-select: all; }
+.convite { border-top: 1px solid rgba(227,183,74,.3); padding-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+@keyframes pisca { from { opacity: 1; transform: scale(1); } to { opacity: .75; transform: scale(1.04); } }
+
+#confete { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+@media (prefers-reduced-motion: reduce) { .resultado .premio { animation: none; } }
+</style>
+</head>
+<body>
+
+<!-- Configuração fica em config.js. Prêmios e textos são editados no painel. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+
+<canvas id="confete"></canvas>
+
+<main class="mesa">
+  <header class="marca">
+    <span class="eyebrow" id="nomeEmpresa"></span>
+    <h1>Gire e Ganhe</h1>
+  </header>
+
+  <ol class="etapas" aria-label="Etapas">
+    <li id="e1" class="ativa">1</li><li id="e2">2</li><li id="e3">3</li>
+  </ol>
+
+  <!-- Aviso de erro geral (servidor fora, campanha encerrada) -->
+  <section class="cartao" id="telaAviso" hidden>
+    <h2 id="avisoTitulo">Promoção indisponível</h2>
+    <p id="avisoTexto"></p>
+  </section>
+
+  <!-- TELA 1: Cadastro -->
+  <section class="cartao" id="tela1">
+    <h2>Faça seu cadastro e gire</h2>
+    <p>Um giro por celular. O prêmio sai na hora.</p>
+    <form id="formCadastro" novalidate>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="campo">
+          <label for="nome">Nome Completo</label>
+          <input id="nome" type="text" autocomplete="name" placeholder="Ex.: Maria da Silva" maxlength="80">
+          <span class="erro" id="erroNome"></span>
+        </div>
+        <div class="campo">
+          <label for="celular">Celular com DDD</label>
+          <input id="celular" type="tel" inputmode="numeric" autocomplete="tel" placeholder="(14) 99999-9999" maxlength="15">
+          <span class="erro" id="erroCel"></span>
+        </div>
+        <label class="consent" for="aceite">
+          <input id="aceite" type="checkbox">
+          <span id="textoConsent">Carregando…</span>
+        </label>
+        <span class="erro" id="erroAceite"></span>
+        <details>
+          <summary>Regras e privacidade</summary>
+          <p id="regras"></p>
+          <p id="privacidade"></p>
+        </details>
+        <button class="btn btn-red" id="btnAvancar" type="submit" disabled>Carregando…</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- TELA 2: Roleta -->
+  <section class="cartao" id="tela2" hidden>
+    <h2 style="text-align:center">Boa sorte, <span id="primeiroNome"></span>!</h2>
+    <div class="roda-wrap">
+      <div class="ponteiro" aria-hidden="true"></div>
+      <canvas id="roda" width="760" height="760" aria-label="Roleta de prêmios"></canvas>
+      <div class="miolo" aria-hidden="true" id="miolo"></div>
+    </div>
+    <button class="btn btn-red" id="btnGirar" type="button">GIRAR ROLETA</button>
+    <span class="erro" id="erroGiro" style="text-align:center"></span>
+  </section>
+
+  <!-- TELA 3: Resultado -->
+  <section class="cartao resultado" id="tela3" hidden>
+    <h2 id="tituloResultado"></h2>
+    <p id="textoResultado"></p>
+    <div class="premio" id="nomePremio"></div>
+    <div class="codigo" id="codigo"></div>
+    <p class="dica" id="instrucao"></p>
+
+    <!-- Convite OPCIONAL de avaliação: não tem ligação com o prêmio -->
+    <div class="convite" id="convite" hidden>
+      <p>Gostou da nossa pizza? Sua opinião no Google ajuda outras pessoas a nos conhecer.</p>
+      <a class="btn btn-ghost" id="linkGoogle" href="#" target="_blank" rel="noopener">Deixar minha opinião no Google</a>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const PAGINA = window.DIFORNI;
+  const sb = window.supabase.createClient(PAGINA.SUPABASE_URL, PAGINA.SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  const CORES = { vermelho: "#c8102e", preto: "#141414", verde: "#0f7a45" };
+  const corDe = (c) => CORES[String(c).toLowerCase()] || c;
+  const origem = (new URLSearchParams(location.search).get("origem") || "direto").replace(/[^\w-]/g, "").slice(0, 30);
+
+  let dados = null;            // vem da planilha: prêmios, textos, link
+  const jogador = { nome: "", celular: "" };
+
+  $("nomeEmpresa").textContent = PAGINA.nomeEmpresa;
+  $("miolo").textContent = PAGINA.siglaMiolo;
+  $("privacidade").textContent =
+    `Controlador dos dados: ${PAGINA.controlador} (CNPJ ${PAGINA.cnpj}). Usamos seu nome e celular somente para validar o prêmio e enviar promoções da loja. ` +
+    `Não vendemos nem compartilhamos seus dados. Para cancelar ou pedir a exclusão, fale com a gente: ${PAGINA.contatoPrivacidade}.`;
+
+  /* ---------- API ---------- */
+  // A página só chama duas funções do banco; ela não tem acesso às tabelas.
+  async function rpc(nome, args) {
+    const { data, error } = await sb.rpc(nome, args || {});
+    if (error) throw error;
+    return data;
+  }
+
+  function aviso(titulo, texto) {
+    $("avisoTitulo").textContent = titulo; $("avisoTexto").textContent = texto;
+    $("telaAviso").hidden = false; ["tela1", "tela2", "tela3"].forEach((t) => ($(t).hidden = true));
+  }
+
+  async function carregar() {
+    try {
+      dados = await rpc("dados_publicos");
+      if (!dados.ok) throw new Error(dados.erro);
+      if (!dados.campanhaAtiva) return aviso("Promoção encerrada", "A roleta está pausada no momento. Fique de olho nas nossas redes para a próxima.");
+      if (!dados.premios.length) throw new Error("sem prêmios");
+      $("textoConsent").textContent = dados.consentimentoTexto;
+      $("regras").textContent = dados.regras;
+      $("linkGoogle").href = dados.linkGoogle;
+      $("btnAvancar").disabled = false; $("btnAvancar").textContent = "Ir para a roleta";
+    } catch (e) {
+      aviso("Não foi possível carregar", "Verifique sua internet e recarregue a página. Se continuar, avise nossa equipe.");
+    }
+  }
+
+  /* ---------- navegação ---------- */
+  function irPara(n) {
+    [1, 2, 3].forEach((i) => { $("tela" + i).hidden = i !== n; $("e" + i).className = i < n ? "feita" : i === n ? "ativa" : ""; });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /* ---------- TELA 1 ---------- */
+  $("celular").addEventListener("input", (e) => {
+    const d = e.target.value.replace(/\D/g, "").slice(0, 11);
+    let out = d;
+    if (d.length > 0) out = "(" + d.slice(0, 2);
+    if (d.length >= 3) out += ") " + d.slice(2, d.length > 10 ? 7 : 6);
+    if (d.length >= 7) out += "-" + d.slice(d.length > 10 ? 7 : 6);
+    e.target.value = out;
+  });
+
+  $("formCadastro").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const nome = $("nome").value.trim().replace(/\s+/g, " ");
+    const dig = $("celular").value.replace(/\D/g, "");
+    let ok = true;
+    const marca = (campo, erroEl, msg) => {
+      $(erroEl).textContent = msg || "";
+      if (campo) msg ? $(campo).setAttribute("aria-invalid", "true") : $(campo).removeAttribute("aria-invalid");
+      if (msg) ok = false;
+    };
+    marca("nome", "erroNome", nome.split(" ").length < 2 || nome.length < 5 ? "Digite nome e sobrenome." : "");
+    marca("celular", "erroCel", dig.length !== 11 || dig[2] !== "9" ? "Digite o celular com DDD, ex.: (14) 99999-9999." : "");
+    marca(null, "erroAceite", !$("aceite").checked ? "Marque a autorização para participar." : "");
+    if (!ok) return;
+
+    jogador.nome = nome; jogador.celular = $("celular").value;
+    $("primeiroNome").textContent = nome.split(" ")[0];
+    irPara(2); desenharRoda();
+  });
+
+  /* ---------- TELA 2: roleta ---------- */
+  const canvas = $("roda"), ctx = canvas.getContext("2d");
+
+  function quebrar(t, max) {
+    const linhas = []; let atual = "";
+    t.split(" ").forEach((p) => { const teste = atual ? atual + " " + p : p; if (ctx.measureText(teste).width > max && atual) { linhas.push(atual); atual = p; } else atual = teste; });
+    linhas.push(atual); return linhas;
+  }
+
+  function desenharRoda() {
+    const P = dados.premios, N = P.length, ARCO = (2 * Math.PI) / N;
+    const W = canvas.width, c = W / 2, r = c - 4;
+    ctx.clearRect(0, 0, W, W);
+    for (let i = 0; i < N; i++) {
+      const ini = i * ARCO - Math.PI / 2; // fatia 0 começa no topo, sentido horário
+      ctx.beginPath(); ctx.moveTo(c, c); ctx.arc(c, c, r, ini, ini + ARCO); ctx.closePath();
+      ctx.fillStyle = corDe(P[i].cor); ctx.fill();
+      ctx.strokeStyle = "#e3b74a"; ctx.lineWidth = 4; ctx.stroke();
+      ctx.save(); ctx.translate(c, c); ctx.rotate(ini + ARCO / 2);
+      ctx.fillStyle = "#f6f1e4"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      ctx.font = "700 34px 'DM Sans', system-ui, sans-serif";
+      const linhas = quebrar(P[i].texto.toUpperCase(), r * 0.52);
+      linhas.forEach((l, k) => ctx.fillText(l, r - 26, (k - (linhas.length - 1) / 2) * 38));
+      ctx.restore();
+    }
+    for (let i = 0; i < N; i++) {
+      const a = i * ARCO - Math.PI / 2;
+      ctx.beginPath(); ctx.arc(c + Math.cos(a) * (r - 10), c + Math.sin(a) * (r - 10), 7, 0, 2 * Math.PI);
+      ctx.fillStyle = "#e3b74a"; ctx.fill();
+    }
+  }
+  if (document.fonts) document.fonts.ready.then(() => { if (dados && !$("tela2").hidden) desenharRoda(); });
+
+  let rotacao = 0, girando = false;
+  $("btnGirar").addEventListener("click", async () => {
+    if (girando) return;
+    girando = true; $("erroGiro").textContent = "";
+    $("btnGirar").disabled = true; $("btnGirar").textContent = "SORTEANDO…";
+
+    let res;
+    try {
+      // O sorteio acontece no servidor. A roleta só mostra o resultado.
+      res = await rpc("girar", { p_nome: jogador.nome, p_celular: jogador.celular, p_origem: origem, p_consentimento: true });
+    } catch (e) { res = { ok: false, erro: "Sem conexão. Tente de novo." }; }
+
+    if (!res.ok) {
+      $("erroGiro").textContent = res.erro || "Não foi possível girar.";
+      $("btnGirar").disabled = false; $("btnGirar").textContent = "GIRAR ROLETA"; girando = false;
+      return;
+    }
+    const indice = dados.premios.findIndex((p) => p.id === res.premioId);
+    if (res.jaGirou || indice < 0) return mostrarResultado(res);
+
+    $("btnGirar").textContent = "GIRANDO…";
+    const N = dados.premios.length, grau = 360 / N;
+    const folga = (Math.random() - 0.5) * grau * 0.7;
+    const alvo = 360 - (indice + 0.5) * grau + folga;
+    rotacao = rotacao - (rotacao % 360) + (6 + Math.floor(Math.random() * 3)) * 360 + alvo;
+    const dur = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 1200 : 5600;
+    canvas.style.transition = `transform ${dur}ms cubic-bezier(.12,.67,.12,1)`;
+    canvas.style.transform = `rotate(${rotacao}deg)`;
+    setTimeout(() => mostrarResultado(res), dur + 300);
+  });
+
+  /* ---------- TELA 3: resultado ---------- */
+  function mostrarResultado(r) {
+    const primeiro = String(r.nome || jogador.nome).split(" ")[0];
+    $("nomePremio").textContent = r.premio;
+    if (r.ganhou) {
+      $("tituloResultado").textContent = r.jaGirou ? `${primeiro}, você já participou` : `Parabéns, ${primeiro}!`;
+      $("textoResultado").textContent = r.jaGirou ? "Este celular já girou. Seu prêmio é:" : "Você ganhou:";
+      $("codigo").hidden = false; $("codigo").textContent = r.codigo;
+      $("instrucao").textContent = r.status && r.status !== "gerado"
+        ? `Situação do cupom: ${r.status}.`
+        : `Informe este código no seu pedido, com este mesmo celular. Válido até ${r.validade}. Tire um print para não perder.`;
+      if (!r.jaGirou) soltarConfete();
+    } else {
+      $("tituloResultado").textContent = r.jaGirou ? `${primeiro}, você já participou` : `Não foi dessa vez, ${primeiro}`;
+      $("textoResultado").textContent = "Resultado:";
+      $("codigo").hidden = true;
+      $("instrucao").textContent = "Obrigado por participar! Fique de olho no seu WhatsApp para as próximas promoções.";
+    }
+    $("convite").hidden = !dados.linkGoogle;
+    irPara(3);
+  }
+
+  /* ---------- confete ---------- */
+  function soltarConfete() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const cv = $("confete"), cx = cv.getContext("2d"), dpr = window.devicePixelRatio || 1;
+    cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; cx.scale(dpr, dpr);
+    const cores = ["#c8102e", "#141414", "#e3b74a", "#0f7a45", "#f6f1e4"];
+    const pecas = Array.from({ length: 160 }, () => ({
+      x: Math.random() * innerWidth, y: -20 - Math.random() * innerHeight * 0.6, w: 6 + Math.random() * 8, h: 8 + Math.random() * 10,
+      vy: 2 + Math.random() * 3.5, vx: -1.5 + Math.random() * 3, rot: Math.random() * 6, vr: -0.2 + Math.random() * 0.4,
+      cor: cores[Math.floor(Math.random() * cores.length)]
+    }));
+    const inicio = performance.now();
+    (function quadro(t) {
+      cx.clearRect(0, 0, innerWidth, innerHeight);
+      const fim = t - inicio > 6000;
+      pecas.forEach((p) => {
+        p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+        if (p.y > innerHeight + 20 && !fim) { p.y = -20; p.x = Math.random() * innerWidth; }
+        cx.save(); cx.translate(p.x, p.y); cx.rotate(p.rot); cx.fillStyle = p.cor; cx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); cx.restore();
+      });
+      if (!fim || pecas.some((p) => p.y < innerHeight + 20)) requestAnimationFrame(quadro);
+      else cx.clearRect(0, 0, innerWidth, innerHeight);
+    })(inicio);
+  }
+
+  carregar();
+})();
+</script>
+</body>
+</html>

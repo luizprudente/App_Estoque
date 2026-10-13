@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Painel de Leads — Di Forni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,700;6..96,900&family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+/* Painel interno: mesma identidade da roleta, mais sóbrio. Abas no topo, conteúdo em cartões. */
+:root {
+  --bg: #0b2a1c; --surface: #10392a; --surface-2: #164a37; --line: rgba(227,183,74,.28);
+  --red: #c8102e; --gold: #e3b74a; --ink: #f6f1e4; --muted: #a9bfb2;
+  --ok: #3fbf7f; --warn: #e3b74a; --bad: #ff7a8c; --neutral: #8aa196;
+  --font-display: "Bodoni Moda", Georgia, serif;
+  --font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  padding-inline: 16px; padding-block: calc(16px + env(safe-area-inset-top, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)); }
+[hidden] { display: none !important; }
+.wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-family: var(--font-display); font-weight: 900; font-size: 26px; margin: 0; }
+h2 { font-family: var(--font-display); font-weight: 700; font-size: 20px; margin: 0; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+
+.topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.topo .quem { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.abas { display: flex; gap: 6px; overflow-x: auto; border-bottom: 1px solid var(--line); padding-bottom: 0; }
+.abas button { font: inherit; font-weight: 700; background: none; border: 0; color: var(--muted); padding: 10px 14px; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
+.abas button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--red); }
+
+.cartao { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.linha { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.linha > * { min-width: 0; }
+.campo { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; }
+.campo label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+input, select, textarea { font: inherit; color: var(--ink); background: rgba(0,0,0,.25); border: 1.5px solid rgba(246,241,228,.2); border-radius: 8px; padding: 10px 12px; width: 100%; }
+textarea { min-height: 80px; resize: vertical; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); }
+input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--red); }
+
+.btn { font: inherit; font-weight: 700; border: 0; border-radius: 9px; padding: 10px 16px; cursor: pointer; white-space: nowrap; }
+.btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.btn-red { background: var(--red); color: var(--ink); }
+.btn-gold { background: var(--gold); color: #141414; }
+.btn-ghost { background: transparent; color: var(--ink); border: 1.5px solid rgba(246,241,228,.3); }
+.btn-big { font-size: 18px; padding: 14px 22px; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+.chip { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; border: 1.5px solid currentColor; }
+.st-gerado { color: var(--ok); } .st-resgatado { color: var(--gold); } .st-expirado { color: var(--bad); }
+.st-sem_premio, .st-cancelado { color: var(--neutral); }
+
+.msg { padding: 10px 12px; border-radius: 8px; font-weight: 500; }
+.msg.ok { background: rgba(63,191,127,.15); color: var(--ok); }
+.msg.erro { background: rgba(255,122,140,.15); color: var(--bad); }
+
+.cupom { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.cupom div { display: flex; flex-direction: column; gap: 2px; }
+.cupom dt { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.cupom dd { margin: 0; font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
+.premio-grande { font-family: var(--font-display); font-weight: 900; font-size: 28px; color: var(--gold); }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface-2); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 2px; }
+.kpi b { font-size: 26px; font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+.tabela { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid rgba(246,241,228,.08); vertical-align: middle; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; white-space: nowrap; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.descad td { opacity: .5; }
+.barra { height: 8px; background: rgba(246,241,228,.08); border-radius: 4px; min-width: 60px; }
+.barra i { display: block; height: 100%; background: var(--red); border-radius: 4px; }
+.premios-tab input, .premios-tab select { padding: 7px 8px; }
+.premios-tab td { white-space: nowrap; }
+
+.login { max-width: 380px; margin: 10vh auto 0; }
+.links li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 0; }
+.links code { background: rgba(0,0,0,.3); padding: 4px 8px; border-radius: 6px; font-size: 13px; overflow-wrap: anywhere; }
+ul.links { list-style: none; padding: 0; margin: 0; }
+</style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+
+<!-- LOGIN -->
+<section class="cartao login" id="telaLogin" hidden>
+  <h1>Painel de Leads</h1>
+  <p class="muted">Acesso restrito à equipe.</p>
+  <form id="formLogin" class="cartao" style="padding:0;border:0;background:none">
+    <div class="campo"><label for="email">E-mail</label><input id="email" type="email" autocomplete="username" required></div>
+    <div class="campo"><label for="senha">Senha</label><input id="senha" type="password" autocomplete="current-password" required></div>
+    <button class="btn btn-red btn-big" type="submit">Entrar</button>
+    <div class="msg erro" id="erroLogin" hidden></div>
+  </form>
+</section>
+
+<!-- SEM PERMISSÃO -->
+<section class="cartao login" id="telaSemAcesso" hidden>
+  <h2>Usuário sem acesso</h2>
+  <p class="muted">Seu login existe, mas ainda não foi liberado na equipe. Peça ao dono para cadastrar você.</p>
+  <button class="btn btn-ghost" data-sair>Sair</button>
+</section>
+
+<!-- APP -->
+<div class="wrap" id="app" hidden>
+  <header class="topo">
+    <h1>Painel de Leads</h1>
+    <div class="quem"><span id="quem" class="muted"></span><button class="btn btn-ghost" data-sair>Sair</button></div>
+  </header>
+
+  <nav class="abas" role="tablist">
+    <button role="tab" data-aba="balcao" aria-selected="true">Balcão</button>
+    <button role="tab" data-aba="leads" data-dono>Leads</button>
+    <button role="tab" data-aba="indicadores" data-dono>Indicadores</button>
+    <button role="tab" data-aba="premios" data-dono>Prêmios</button>
+    <button role="tab" data-aba="config" data-dono>Campanha</button>
+  </nav>
+
+  <!-- BALCÃO -->
+  <section id="aba-balcao" class="cartao">
+    <h2>Validar cupom</h2>
+    <form id="formBusca" class="linha">
+      <div class="campo" style="flex:3 1 220px"><label for="busca">Código do cupom ou celular</label>
+        <input id="busca" autocomplete="off" placeholder="DF-7K2QX ou (14) 99999-9999" style="font-size:18px;text-transform:uppercase"></div>
+      <button class="btn btn-red btn-big" type="submit">Buscar</button>
+    </form>
+    <div id="resultadoBusca"></div>
+  </section>
+
+  <!-- LEADS -->
+  <section id="aba-leads" class="cartao" hidden>
+    <div class="linha" style="justify-content:space-between;align-items:center">
+      <h2>Leads <span class="muted small" id="contagemLeads"></span></h2>
+      <button class="btn btn-gold" id="btnExportar" data-dono>Exportar para WhatsApp (CSV)</button>
+    </div>
+    <div class="linha">
+      <div class="campo"><label for="fTexto">Nome, celular ou código</label><input id="fTexto"></div>
+      <div class="campo"><label for="fOrigem">Origem</label><select id="fOrigem"><option value="">Todas</option></select></div>
+      <div class="campo"><label for="fStatus">Situação</label>
+        <select id="fStatus"><option value="">Todas</option><option value="gerado">Válido</option><option value="resgatado">Resgatado</option><option value="expirado">Expirado</option><option value="sem_premio">Sem prêmio</option><option value="descadastrado">Descadastrado</option></select></div>
+      <div class="campo"><label for="fPeriodo">Período</label>
+        <select id="fPeriodo"><option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="0">Tudo</option></select></div>
+    </div>
+    <div class="msg" id="msgLeads" hidden></div>
+    <div class="tabela"><table>
+      <thead><tr><th>Data</th><th>Nome</th><th>Celular</th><th>Origem</th><th>Prêmio</th><th>Situação</th><th>Código</th><th></th></tr></thead>
+      <tbody id="tbLeads"></tbody>
+    </table></div>
+    <p class="small muted">Só o dono vê esta lista. A exportação inclui só quem não pediu descadastro. Mostrando no máximo 500 linhas na tela; a exportação leva todos os filtrados.</p>
+  </section>
+
+  <!-- INDICADORES -->
+  <section id="aba-indicadores" class="cartao" hidden>
+    <div class="linha" style="justify-content:space-between;align-items:center">
+      <h2>Indicadores</h2>
+      <select id="iPeriodo" style="width:auto"><option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="0">Tudo</option></select>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <h2 style="font-size:17px">Por origem</h2>
+    <div class="tabela"><table><thead><tr><th>Origem</th><th class="num">Leads</th><th class="num">Cupons</th><th class="num">Resgatados</th><th class="num">Taxa de resgate</th><th></th></tr></thead><tbody id="tbOrigem"></tbody></table></div>
+    <h2 style="font-size:17px">Por prêmio</h2>
+    <div class="tabela"><table><thead><tr><th>Prêmio</th><th class="num">Saiu</th><th class="num">Resgatados</th><th class="num">Custo estimado</th></tr></thead><tbody id="tbPremio"></tbody></table></div>
+    <p class="small muted">Custo estimado usa o custo de cada prêmio cadastrado na aba Prêmios no momento do giro. Recompra só pode ser medida cruzando estes celulares com o seu sistema de pedidos.</p>
+  </section>
+
+  <!-- PRÊMIOS (dono) -->
+  <section id="aba-premios" class="cartao" hidden>
+    <div class="linha" style="justify-content:space-between;align-items:center">
+      <h2>Fatias da roleta</h2>
+      <button class="btn btn-ghost" id="btnNovoPremio">Adicionar fatia</button>
+    </div>
+    <p class="small muted">Peso é a chance relativa: peso 2 sai o dobro de peso 1. Peso 0 aparece na roleta mas nunca sai. Ordem define a posição, no sentido horário a partir do topo. Mudanças valem para o próximo giro.</p>
+    <div class="msg" id="msgPremios" hidden></div>
+    <div class="tabela premios-tab"><table>
+      <thead><tr><th>Ordem</th><th>Texto na fatia</th><th>Cor</th><th class="num">Peso</th><th class="num">Chance</th><th>É prêmio</th><th>Ativo</th><th class="num">Custo R$</th><th></th></tr></thead>
+      <tbody id="tbPremios"></tbody>
+    </table></div>
+    <div class="kpis" id="custoEsperado"></div>
+  </section>
+
+  <!-- CAMPANHA (dono) -->
+  <section id="aba-config" class="cartao" hidden>
+    <h2>Campanha</h2>
+    <form id="formConfig" style="display:flex;flex-direction:column;gap:14px">
+      <label class="linha" style="align-items:center;gap:10px"><input type="checkbox" id="cAtiva"> <b>Roleta ativa</b> <span class="muted small">(desmarque para pausar)</span></label>
+      <div class="linha">
+        <div class="campo"><label for="cValidade">Validade do cupom (dias)</label><input id="cValidade" type="number" min="1" max="90"></div>
+        <div class="campo"><label for="cPrefixo">Prefixo do código</label><input id="cPrefixo" maxlength="6" style="text-transform:uppercase"></div>
+      </div>
+      <div class="campo"><label for="cGoogle">Link de avaliação no Google (convite opcional, após o giro)</label><input id="cGoogle" type="url"></div>
+      <div class="campo"><label for="cConsent">Texto de consentimento (LGPD)</label><textarea id="cConsent"></textarea></div>
+      <div class="campo" style="max-width:280px"><label for="cVersao">Versão do consentimento</label><input id="cVersao"></div>
+      <p class="small muted">Ao mudar o texto do consentimento, mude também a versão. Cada lead guarda o texto e a versão que aceitou.</p>
+      <div class="campo"><label for="cRegras">Regras exibidas ao cliente</label><textarea id="cRegras"></textarea></div>
+      <div><button class="btn btn-red" type="submit">Salvar campanha</button></div>
+      <div class="msg" id="msgConfig" hidden></div>
+    </form>
+    <h2 style="font-size:17px">Links por origem (para QR Codes)</h2>
+    <p class="small muted">Use um link diferente em cada ponto de divulgação para saber de onde vem cada lead.</p>
+    <ul class="links" id="listaLinks"></ul>
+    <div class="linha"><div class="campo"><label for="novaOrigem">Nova origem (letras, números, hífen)</label><input id="novaOrigem" placeholder="ex.: panfleto-out"></div><button class="btn btn-ghost" id="btnAddOrigem" type="button">Gerar link</button></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const C = window.DIFORNI;
+  const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const fone = (d) => (d && d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : d || "");
+  const dataBR = (v, hora) => v ? new Date(v).toLocaleString("pt-BR", hora ? { dateStyle: "short", timeStyle: "short" } : { dateStyle: "short" }) : "";
+  const diaBR = (d) => d ? d.split("-").reverse().join("/") : "";
+  const brl = (n) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const ROTULO = { gerado: "Válido", resgatado: "Resgatado", expirado: "Expirado", sem_premio: "Sem prêmio", cancelado: "Cancelado" };
+  const chip = (st) => `<span class="chip st-${esc(st)}">${esc(ROTULO[st] || st)}</span>`;
+  const msg = (el, tipo, texto) => { el.className = "msg " + tipo; el.textContent = texto; el.hidden = !texto; };
+
+  let eu = null;            // { nome, papel }
+  let leads = [];           // cache da aba Leads/Indicadores
+  let premios = [];
+
+  /* ---------- sessão ---------- */
+  async function iniciar() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return mostrar("telaLogin");
+    const { data, error } = await sb.from("equipe").select("nome,papel,ativo").eq("user_id", session.user.id).maybeSingle();
+    if (error || !data || !data.ativo) return mostrar("telaSemAcesso");
+    eu = data;
+    $("quem").textContent = `${eu.nome} · ${eu.papel === "dono" ? "Dono" : "Balcão"}`;
+    document.querySelectorAll("[data-dono]").forEach((el) => (el.hidden = eu.papel !== "dono"));
+    mostrar("app");
+    $("busca").focus();
+  }
+  function mostrar(id) { ["telaLogin", "telaSemAcesso", "app"].forEach((t) => ($(t).hidden = t !== id)); }
+
+  $("formLogin").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const { error } = await sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("senha").value });
+    if (error) { $("erroLogin").hidden = false; $("erroLogin").textContent = "E-mail ou senha incorretos."; return; }
+    iniciar();
+  });
+  document.querySelectorAll("[data-sair]").forEach((b) => b.addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); }));
+
+  /* ---------- abas ---------- */
+  document.querySelectorAll("[data-aba]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-aba]").forEach((x) => x.setAttribute("aria-selected", x === b));
+    ["balcao", "leads", "indicadores", "premios", "config"].forEach((a) => ($("aba-" + a).hidden = a !== b.dataset.aba));
+    ({ leads: carregarLeads, indicadores: carregarIndicadores, premios: carregarPremios, config: carregarConfig })[b.dataset.aba]?.();
+  }));
+
+  /* ---------- BALCÃO ---------- */
+  $("formBusca").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const termo = $("busca").value.trim().toUpperCase();
+    const out = $("resultadoBusca");
+    if (!termo) return;
+    let cupom;
+    try { cupom = await buscarCupom(termo); } catch (err) { out.innerHTML = `<div class="msg erro">${esc(err.message)}</div>`; return; }
+    if (!cupom) { out.innerHTML = `<div class="msg erro">Nenhum cupom encontrado para “${esc(termo)}”. Confira o código ou busque pelo celular com DDD.</div>`; return; }
+    desenharCupom(cupom);
+  });
+
+  async function buscarCupom(termo) {
+    const { data, error } = await sb.rpc("buscar_cupom", { p_termo: termo });
+    if (error || !data.ok) throw new Error(data?.erro || "Erro ao buscar. Tente de novo.");
+    return data.cupom;
+  }
+
+  function desenharCupom(l) {
+    const out = $("resultadoBusca");
+    const st = l.status_atual;
+    let acao = "";
+    if (st === "gerado") acao = `<p class="small muted">Confira se o celular do pedido é o mesmo do cupom antes de aplicar.</p>
+      <div class="linha" id="acaoResgate"><button class="btn btn-red btn-big" id="btnResgatar">Aplicar e marcar como resgatado</button></div>`;
+    else if (st === "resgatado" && eu.papel === "dono") acao = `<div class="linha"><button class="btn btn-ghost" id="btnDesfazer">Desfazer resgate</button></div>`;
+    const alerta = st === "resgatado" ? `<div class="msg erro">Este cupom já foi usado em ${esc(dataBR(l.resgatado_em, true))} por ${esc(l.resgatado_por_nome || "—")}. Não aplicar.</div>`
+      : st === "expirado" ? `<div class="msg erro">Cupom vencido em ${esc(diaBR(l.validade))}. Não aplicar.</div>`
+      : st === "sem_premio" ? `<div class="msg erro">Este cliente girou e não ganhou prêmio.</div>` : "";
+    out.innerHTML = `<div class="cartao" style="background:var(--surface-2)">
+      <div class="linha" style="justify-content:space-between;align-items:center"><div class="premio-grande">${esc(l.premio_texto)}</div>${chip(st)}</div>
+      ${alerta}
+      <dl class="cupom">
+        <div><dt>Cliente</dt><dd>${esc(l.nome)}</dd></div>
+        <div><dt>Celular</dt><dd>${esc(fone(l.celular))}</dd></div>
+        <div><dt>Código</dt><dd>${esc(l.codigo || "—")}</dd></div>
+        <div><dt>Validade</dt><dd>${esc(diaBR(l.validade) || "—")}</dd></div>
+        <div><dt>Girou em</dt><dd>${esc(dataBR(l.criado_em, true))}</dd></div>
+      </dl>${acao}<div id="msgCupom" class="msg" hidden></div></div>`;
+
+    $("btnResgatar")?.addEventListener("click", () => {
+      $("acaoResgate").innerHTML = `<span><b>Confirmar uso de “${esc(l.premio_texto)}” para ${esc(l.nome.split(" ")[0])}?</b></span>
+        <button class="btn btn-red" id="btnSim">Sim, confirmar</button><button class="btn btn-ghost" id="btnNao">Cancelar</button>`;
+      $("btnNao").onclick = () => desenharCupom(l);
+      $("btnSim").onclick = async () => {
+        $("btnSim").disabled = true;
+        const { data, error } = await sb.rpc("resgatar", { p_codigo: l.codigo });
+        if (error || !data.ok) return msg($("msgCupom"), "erro", data?.erro || "Não foi possível resgatar.");
+        desenharCupom(await buscarCupom(l.codigo)); msg($("msgCupom"), "ok", "Resgate registrado. Pode aplicar o prêmio no pedido.");
+        $("busca").value = ""; $("busca").focus();
+      };
+    });
+    $("btnDesfazer")?.addEventListener("click", async () => {
+      const { data, error } = await sb.rpc("desfazer_resgate", { p_lead_id: l.id });
+      if (error || !data.ok) return msg($("msgCupom"), "erro", data?.erro || "Não foi possível desfazer.");
+      desenharCupom(await buscarCupom(l.codigo)); msg($("msgCupom"), "ok", "Resgate desfeito. O cupom voltou a valer.");
+    });
+  }
+
+  /* ---------- LEADS ---------- */
+  async function buscarTodos() {
+    const todos = []; const passo = 1000;
+    for (let de = 0; ; de += passo) {
+      const { data, error } = await sb.from("leads_painel").select("*").order("criado_em", { ascending: false }).range(de, de + passo - 1);
+      if (error) throw error;
+      todos.push(...data);
+      if (data.length < passo) break;
+    }
+    return todos;
+  }
+  async function carregarLeads() {
+    try { leads = await buscarTodos(); } catch (e) { return msg($("msgLeads"), "erro", "Erro ao carregar leads."); }
+    const origens = [...new Set(leads.map((l) => l.origem))].sort();
+    const sel = $("fOrigem"), atual = sel.value;
+    sel.innerHTML = `<option value="">Todas</option>` + origens.map((o) => `<option ${o === atual ? "selected" : ""}>${esc(o)}</option>`).join("");
+    filtrarLeads();
+  }
+  function noPeriodo(l, dias) { return !Number(dias) || new Date(l.criado_em) >= new Date(Date.now() - dias * 864e5); }
+  function leadsFiltrados() {
+    const t = $("fTexto").value.trim().toUpperCase(), td = t.replace(/\D/g, "");
+    const o = $("fOrigem").value, s = $("fStatus").value, p = $("fPeriodo").value;
+    return leads.filter((l) => noPeriodo(l, p) && (!o || l.origem === o) &&
+      (!s || (s === "descadastrado" ? !!l.descadastrado_em : l.status_atual === s)) &&
+      (!t || l.nome.toUpperCase().includes(t) || (l.codigo || "").includes(t) || (td.length >= 4 && l.celular.includes(td))));
+  }
+  function filtrarLeads() {
+    const lista = leadsFiltrados();
+    $("contagemLeads").textContent = `· ${lista.length} encontrados`;
+    $("tbLeads").innerHTML = lista.slice(0, 500).map((l) => `<tr class="${l.descadastrado_em ? "descad" : ""}">
+      <td>${esc(dataBR(l.criado_em))}</td><td>${esc(l.nome)}</td><td style="white-space:nowrap">${esc(fone(l.celular))}</td>
+      <td>${esc(l.origem)}</td><td>${esc(l.premio_texto)}</td><td>${chip(l.status_atual)}</td><td>${esc(l.codigo || "")}</td>
+      <td>${l.descadastrado_em ? `<span class="small muted">Descadastrado</span>` : `<button class="btn btn-ghost small" data-descad="${l.id}">Descadastrar</button>`}</td></tr>`).join("")
+      || `<tr><td colspan="8" class="muted">Nenhum lead neste filtro. Os cadastros aparecem aqui assim que alguém gira a roleta.</td></tr>`;
+  }
+  ["fTexto", "fOrigem", "fStatus", "fPeriodo"].forEach((id) => $(id).addEventListener("input", filtrarLeads));
+  $("tbLeads").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-descad]"); if (!b) return;
+    if (b.dataset.confirmar !== "1") { b.dataset.confirmar = "1"; b.textContent = "Confirmar?"; b.classList.add("btn-red"); return; }
+    const { error } = await sb.from("leads").update({ descadastrado_em: new Date().toISOString() }).eq("id", b.dataset.descad);
+    if (error) return msg($("msgLeads"), "erro", "Não foi possível descadastrar.");
+    const l = leads.find((x) => String(x.id) === b.dataset.descad); if (l) l.descadastrado_em = new Date().toISOString();
+    msg($("msgLeads"), "ok", "Cliente descadastrado. Ele não sai mais na exportação."); filtrarLeads();
+  });
+  $("btnExportar").addEventListener("click", () => {
+    const lista = leadsFiltrados().filter((l) => !l.descadastrado_em);
+    const cab = ["Nome", "Primeiro nome", "Celular", "Origem", "Prêmio", "Situação", "Código", "Validade", "Data cadastro"];
+    const linhas = lista.map((l) => [l.nome, l.nome.split(" ")[0], "+55" + l.celular, l.origem, l.premio_texto, ROTULO[l.status_atual] || l.status_atual, l.codigo || "", diaBR(l.validade), dataBR(l.criado_em)]);
+    const csv = "﻿" + [cab, ...linhas].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = `leads-diforni-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+
+  /* ---------- INDICADORES ---------- */
+  async function carregarIndicadores() {
+    try { leads = await buscarTodos(); } catch (e) { $("kpis").innerHTML = `<div class="msg erro">Erro ao carregar.</div>`; return; }
+    desenharIndicadores();
+  }
+  $("iPeriodo").addEventListener("input", desenharIndicadores);
+  function desenharIndicadores() {
+    const p = $("iPeriodo").value;
+    const L = leads.filter((l) => noPeriodo(l, p));
+    const cupons = L.filter((l) => l.ganhou), resg = L.filter((l) => l.status_atual === "resgatado");
+    const custo = resg.reduce((s, l) => s + Number(l.custo_premio || 0), 0);
+    const pct = (a, b) => (b ? Math.round((100 * a) / b) + "%" : "—");
+    const k = [
+      ["Leads", L.length], ["Cupons gerados", cupons.length], ["Resgatados", resg.length],
+      ["Taxa de resgate", pct(resg.length, cupons.length)], ["Custo dos resgates", brl(custo)],
+      ["Custo por lead", L.length ? brl(custo / L.length) : "—"], ["Descadastrados", L.filter((l) => l.descadastrado_em).length]
+    ];
+    $("kpis").innerHTML = k.map(([r, v]) => `<div class="kpi"><b>${esc(v)}</b><span>${esc(r)}</span></div>`).join("");
+
+    const por = (chave) => { const m = {}; L.forEach((l) => { const c = l[chave]; (m[c] ||= []).push(l); }); return m; };
+    const o = por("origem"), max = Math.max(1, ...Object.values(o).map((x) => x.length));
+    $("tbOrigem").innerHTML = Object.entries(o).sort((a, b) => b[1].length - a[1].length).map(([nome, ls]) => {
+      const cp = ls.filter((l) => l.ganhou).length, rs = ls.filter((l) => l.status_atual === "resgatado").length;
+      return `<tr><td>${esc(nome)}</td><td class="num">${ls.length}</td><td class="num">${cp}</td><td class="num">${rs}</td><td class="num">${pct(rs, cp)}</td>
+        <td style="width:30%"><div class="barra"><i style="width:${(100 * ls.length) / max}%"></i></div></td></tr>`;
+    }).join("") || `<tr><td colspan="6" class="muted">Sem leads no período.</td></tr>`;
+
+    const pr = por("premio_texto");
+    $("tbPremio").innerHTML = Object.entries(pr).sort((a, b) => b[1].length - a[1].length).map(([nome, ls]) => {
+      const rs = ls.filter((l) => l.status_atual === "resgatado");
+      return `<tr><td>${esc(nome)}</td><td class="num">${ls.length}</td><td class="num">${rs.length}</td><td class="num">${brl(rs.reduce((s, l) => s + Number(l.custo_premio || 0), 0))}</td></tr>`;
+    }).join("") || `<tr><td colspan="4" class="muted">Sem giros no período.</td></tr>`;
+  }
+
+  /* ---------- PRÊMIOS ---------- */
+  async function carregarPremios() {
+    const { data, error } = await sb.from("premios").select("*").order("ordem").order("id");
+    if (error) return msg($("msgPremios"), "erro", "Erro ao carregar prêmios.");
+    premios = data; desenharPremios();
+  }
+  function desenharPremios() {
+    const total = premios.filter((p) => p.ativo).reduce((s, p) => s + Number(p.peso), 0);
+    const cores = ["vermelho", "preto", "verde"];
+    $("tbPremios").innerHTML = premios.map((p) => `<tr data-id="${p.id}">
+      <td><input type="number" data-f="ordem" value="${esc(p.ordem)}" style="width:64px"></td>
+      <td><input data-f="texto" value="${esc(p.texto)}" maxlength="40" style="min-width:150px"></td>
+      <td><select data-f="cor">${cores.map((c) => `<option ${c === p.cor ? "selected" : ""}>${c}</option>`).join("")}${cores.includes(p.cor) ? "" : `<option selected>${esc(p.cor)}</option>`}</select></td>
+      <td class="num"><input type="number" data-f="peso" min="0" step="0.5" value="${esc(p.peso)}" style="width:72px"></td>
+      <td class="num">${p.ativo && total ? ((100 * p.peso) / total).toFixed(1) + "%" : "—"}</td>
+      <td><input type="checkbox" data-f="e_premio" ${p.e_premio ? "checked" : ""} aria-label="É prêmio"></td>
+      <td><input type="checkbox" data-f="ativo" ${p.ativo ? "checked" : ""} aria-label="Ativo"></td>
+      <td class="num"><input type="number" data-f="custo_estimado" min="0" step="0.5" value="${esc(p.custo_estimado)}" style="width:84px"></td>
+      <td><button class="btn btn-red small" data-salvar>Salvar</button></td></tr>`).join("");
+    const esperado = total ? premios.filter((p) => p.ativo && p.e_premio).reduce((s, p) => s + (p.peso / total) * Number(p.custo_estimado), 0) : 0;
+    $("custoEsperado").innerHTML = `<div class="kpi"><b>${brl(esperado)}</b><span>Custo esperado por giro (se 100% resgatar)</span></div>
+      <div class="kpi"><b>${total ? Math.round((100 * premios.filter((p) => p.ativo && p.e_premio).reduce((s, p) => s + Number(p.peso), 0)) / total) + "%" : "—"}</b><span>Chance de ganhar algo</span></div>`;
+  }
+  $("tbPremios").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-salvar]"); if (!b) return;
+    const tr = b.closest("tr"), v = {};
+    tr.querySelectorAll("[data-f]").forEach((i) => (v[i.dataset.f] = i.type === "checkbox" ? i.checked : i.type === "number" ? Number(i.value) : i.value.trim()));
+    if (!v.texto) return msg($("msgPremios"), "erro", "O texto da fatia não pode ficar vazio.");
+    const { error } = await sb.from("premios").update(v).eq("id", tr.dataset.id);
+    if (error) return msg($("msgPremios"), "erro", "Não foi possível salvar: " + error.message);
+    msg($("msgPremios"), "ok", `“${v.texto}” salvo. Vale a partir do próximo giro.`); carregarPremios();
+  });
+  $("btnNovoPremio").addEventListener("click", async () => {
+    const ordem = Math.max(0, ...premios.map((p) => p.ordem)) + 1;
+    const { error } = await sb.from("premios").insert({ ordem, texto: "Novo prêmio", cor: "preto", peso: 0, e_premio: true, ativo: false });
+    if (error) return msg($("msgPremios"), "erro", "Não foi possível adicionar.");
+    msg($("msgPremios"), "ok", "Fatia criada inativa e com peso 0. Ajuste e marque Ativo para entrar na roleta."); carregarPremios();
+  });
+
+  /* ---------- CAMPANHA ---------- */
+  let cfg = null;
+  async function carregarConfig() {
+    const { data, error } = await sb.from("config").select("*").eq("id", 1).single();
+    if (error) return msg($("msgConfig"), "erro", "Erro ao carregar.");
+    cfg = data;
+    $("cAtiva").checked = cfg.campanha_ativa; $("cValidade").value = cfg.validade_dias; $("cPrefixo").value = cfg.prefixo_codigo;
+    $("cGoogle").value = cfg.link_google; $("cConsent").value = cfg.consentimento_texto; $("cVersao").value = cfg.consentimento_versao; $("cRegras").value = cfg.regras;
+    desenharLinks();
+  }
+  $("formConfig").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const v = {
+      campanha_ativa: $("cAtiva").checked, validade_dias: Number($("cValidade").value), prefixo_codigo: $("cPrefixo").value.trim().toUpperCase(),
+      link_google: $("cGoogle").value.trim(), consentimento_texto: $("cConsent").value.trim(), consentimento_versao: $("cVersao").value.trim(),
+      regras: $("cRegras").value.trim(), atualizado_em: new Date().toISOString()
+    };
+    if (v.consentimento_texto !== cfg.consentimento_texto && v.consentimento_versao === cfg.consentimento_versao)
+      return msg($("msgConfig"), "erro", "Você mudou o texto do consentimento. Mude também a versão (ex.: 2026-11-v2) e salve de novo.");
+    if (!/^[A-Z0-9]{1,6}$/.test(v.prefixo_codigo)) return msg($("msgConfig"), "erro", "Prefixo: até 6 letras ou números, sem espaço.");
+    const { error } = await sb.from("config").update(v).eq("id", 1);
+    if (error) return msg($("msgConfig"), "erro", "Não foi possível salvar: " + error.message);
+    cfg = { ...cfg, ...v }; msg($("msgConfig"), "ok", "Campanha salva.");
+  });
+
+  const ORIGENS_PADRAO = ["caixa-pizza", "mesa", "instagram", "whatsapp", "balcao"];
+  let origensExtras = [];
+  try { origensExtras = JSON.parse(localStorage.getItem("diforni_origens") || "[]"); } catch (e) {}
+  function desenharLinks() {
+    const base = new URL("./", location.href).href;
+    $("listaLinks").innerHTML = [...ORIGENS_PADRAO, ...origensExtras].map((o) => {
+      const url = `${base}?origem=${encodeURIComponent(o)}`;
+      return `<li><b style="min-width:110px">${esc(o)}</b><code>${esc(url)}</code><button class="btn btn-ghost small" type="button" data-copiar="${esc(url)}">Copiar</button></li>`;
+    }).join("");
+  }
+  $("listaLinks").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-copiar]"); if (!b) return;
+    try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = "Copiado"; } catch (err) { b.textContent = "Selecione e copie"; }
+  });
+  $("btnAddOrigem").addEventListener("click", () => {
+    const o = $("novaOrigem").value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+    if (!o) return;
+    if (!origensExtras.includes(o)) origensExtras.push(o);
+    try { localStorage.setItem("diforni_origens", JSON.stringify(origensExtras)); } catch (e) {}
+    $("novaOrigem").value = ""; desenharLinks();
+  });
+
+  iniciar();
+})();
+</script>
+</body>
+</html>
