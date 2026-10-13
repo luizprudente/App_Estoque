@@ -1,7 +1,7 @@
 'use strict';
 (async () => {
   const params = new URLSearchParams(location.search);
-  const slug = (location.pathname.match(/^\/j\/([a-z0-9-]+)/) || [])[1] || params.get('j') || '';
+  const slug = (location.pathname.match(/^\/j\/([a-z0-9-]+)/) || [])[1] || params.get('j') || location.hash.slice(1);
   const origem = params.get('o') || 'direto';
   const chave = 'df-jogo-' + slug;
 
