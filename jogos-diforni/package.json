@@ -1,0 +1,13 @@
+{
+  "name": "jogos-diforni",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Jogos de captação de leads da Di Forni Pizzaria (roleta, raspadinha, caixa surpresa)",
+  "main": "server.js",
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "usuario": "node --disable-warning=ExperimentalWarning server.js usuario",
+    "test": "node --disable-warning=ExperimentalWarning --test teste.js"
+  }
+}

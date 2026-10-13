@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel · Jogos Di Forni</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1d1612">
+<link rel="stylesheet" href="/estilo.css">
+</head>
+<body class="painel">
+
+<form class="cartao login" id="login" hidden>
+  <h1 style="font-size:24px">Painel Di Forni</h1>
+  <label for="email">E-mail</label>
+  <input id="email" type="email" autocomplete="username" required>
+  <label for="senha">Senha</label>
+  <input id="senha" type="password" autocomplete="current-password" required>
+  <div class="erro" id="loginErro" hidden></div>
+  <button class="botao cheio" type="submit">Entrar</button>
+</form>
+
+<div id="app" hidden>
+  <header>
+    <h1>Painel Di Forni</h1>
+    <span class="quem" id="quem"></span>
+    <button class="botao pequeno secundario" id="sair" style="color:#fff;border-color:#5a4a3e">Sair</button>
+  </header>
+  <nav class="abas" id="abas" role="tablist">
+    <button data-aba="balcao" role="tab">Balcão</button>
+    <button data-aba="leads" role="tab" data-dono>Leads</button>
+    <button data-aba="indicadores" role="tab" data-dono>Indicadores</button>
+    <button data-aba="jogos" role="tab" data-dono>Jogos e prêmios</button>
+    <button data-aba="divulgar" role="tab" data-dono>Links e QR Codes</button>
+    <button data-aba="config" role="tab" data-dono>Configurações</button>
+    <button data-aba="equipe" role="tab" data-dono>Equipe</button>
+  </nav>
+  <main>
+    <!-- Balcão -->
+    <section id="aba-balcao" hidden>
+      <form class="cartao" id="buscaCupom">
+        <h2>Validar cupom</h2>
+        <div class="linha">
+          <div><label for="termo">Código do cupom ou celular do cliente</label>
+            <input id="termo" type="search" placeholder="DF-AB2CD ou (14) 99999-8888" autocomplete="off" autocapitalize="characters"></div>
+          <button class="botao" type="submit">Buscar</button>
+        </div>
+        <div id="cupons"></div>
+      </form>
+    </section>
+
+    <!-- Leads -->
+    <section id="aba-leads" hidden>
+      <div class="cartao">
+        <h2>Leads</h2>
+        <form class="linha" id="filtroLeads">
+          <div><label for="fBusca">Buscar</label><input id="fBusca" type="search" placeholder="Nome, celular ou código"></div>
+          <div><label for="fJogo">Jogo</label><select id="fJogo"><option value="">Todos</option></select></div>
+          <div><label for="fOrigem">Origem</label><input id="fOrigem" type="text" placeholder="ex.: mesa"></div>
+          <button class="botao" type="submit">Filtrar</button>
+          <button class="botao secundario" type="button" id="exportar">Baixar planilha (CSV)</button>
+        </form>
+        <p class="miudo" id="totalLeads"></p>
+        <div class="tabela-rolagem"><table id="tabelaLeads"></table></div>
+        <div class="linha" style="margin-top:12px;justify-content:space-between">
+          <button class="botao pequeno secundario" id="anterior" type="button">← Anteriores</button>
+          <button class="botao pequeno secundario" id="proxima" type="button">Próximos →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Indicadores -->
+    <section id="aba-indicadores" hidden>
+      <div class="numeros" id="numeros"></div>
+      <div class="cartao" style="margin-top:16px"><h3>Participações nos últimos 14 dias</h3><div class="barras" id="barras"></div></div>
+      <div class="cartao"><h3>Por jogo</h3><div class="tabela-rolagem"><table id="porJogo"></table></div></div>
+      <div class="cartao"><h3>Por origem (QR Code / link)</h3><div class="tabela-rolagem"><table id="porOrigem"></table></div></div>
+    </section>
+
+    <!-- Jogos -->
+    <section id="aba-jogos" hidden>
+      <div id="listaJogos"></div>
+      <form class="cartao" id="novoJogo">
+        <h3>Criar novo jogo</h3>
+        <div class="linha">
+          <div><label for="njNome">Nome</label><input id="njNome" type="text" placeholder="Roleta de Natal" required></div>
+          <div><label for="njSlug">Endereço (vai no link)</label><input id="njSlug" type="text" placeholder="roleta-natal" required></div>
+          <div><label for="njTipo">Tipo</label><select id="njTipo">
+            <option value="roleta">Roleta</option><option value="raspadinha">Raspadinha</option><option value="caixa">Caixa surpresa</option>
+          </select></div>
+          <button class="botao" type="submit">Criar</button>
+        </div>
+        <p class="miudo">O jogo nasce desligado. Cadastre os prêmios e depois marque “No ar”.</p>
+      </form>
+    </section>
+
+    <!-- Divulgar -->
+    <section id="aba-divulgar" hidden>
+      <div class="cartao">
+        <h2>Links e QR Codes</h2>
+        <p class="miudo">A “origem” identifica de onde o cliente veio (caixa de pizza, mesa, Instagram…) e aparece nos indicadores.</p>
+        <div class="linha">
+          <div><label for="qJogo">Jogo</label><select id="qJogo"></select></div>
+          <div><label for="qOrigem">Origem</label><input id="qOrigem" type="text" value="caixa-pizza"></div>
+          <div><label for="qBase">Endereço do site</label><input id="qBase" type="text"></div>
+        </div>
+        <div style="text-align:center;margin-top:16px">
+          <img id="qrImg" alt="QR Code" style="image-rendering:pixelated;width:240px;height:240px;background:#fff;padding:8px;border-radius:8px">
+          <p class="qr-link" id="qrLink"></p>
+          <div class="linha" style="justify-content:center">
+            <button class="botao pequeno secundario" type="button" id="copiarLink">Copiar link</button>
+            <a class="botao pequeno" id="baixarQr" download="qrcode.gif">Baixar QR Code</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Configurações -->
+    <section id="aba-config" hidden>
+      <form class="cartao" id="formConfig">
+        <h2>Configurações da campanha</h2>
+        <div class="linha">
+          <div><label for="c_nome_empresa">Nome da empresa</label><input id="c_nome_empresa" type="text"></div>
+          <div><label for="c_prefixo_codigo">Prefixo do código</label><input id="c_prefixo_codigo" type="text" maxlength="6"></div>
+          <div><label for="c_validade_dias">Validade do cupom (dias)</label><input id="c_validade_dias" type="number" min="1" max="90"></div>
+        </div>
+        <label for="c_link_google">Link de avaliação no Google</label><input id="c_link_google" type="text">
+        <label for="c_regras">Regras (aparecem para o cliente)</label><textarea id="c_regras" rows="3"></textarea>
+        <label for="c_consentimento_texto">Texto de autorização (LGPD)</label><textarea id="c_consentimento_texto" rows="3"></textarea>
+        <p class="miudo">Ao mudar este texto, uma nova versão é criada. Cada lead guarda a versão que aceitou. <span id="versao"></span></p>
+        <h3 style="margin-top:18px">Aviso de privacidade</h3>
+        <div class="linha">
+          <div><label for="c_controlador">Razão social</label><input id="c_controlador" type="text"></div>
+          <div><label for="c_cnpj">CNPJ</label><input id="c_cnpj" type="text"></div>
+          <div><label for="c_contato_privacidade">Contato para privacidade</label><input id="c_contato_privacidade" type="text" placeholder="WhatsApp (14) 99999-8888"></div>
+        </div>
+        <div id="configMsg"></div>
+        <button class="botao" type="submit" style="margin-top:14px">Salvar</button>
+      </form>
+    </section>
+
+    <!-- Equipe -->
+    <section id="aba-equipe" hidden>
+      <div class="cartao"><h2>Equipe</h2><div class="tabela-rolagem"><table id="tabelaEquipe"></table></div></div>
+      <form class="cartao" id="novoUsuario">
+        <h3>Adicionar pessoa</h3>
+        <div class="linha">
+          <div><label for="nuNome">Nome</label><input id="nuNome" type="text" required></div>
+          <div><label for="nuEmail">E-mail</label><input id="nuEmail" type="email" required></div>
+          <div><label for="nuSenha">Senha (mín. 8)</label><input id="nuSenha" type="text" minlength="8" required></div>
+          <div><label for="nuPapel">Papel</label><select id="nuPapel"><option value="balcao">Balcão</option><option value="dono">Dono</option></select></div>
+          <button class="botao" type="submit">Adicionar</button>
+        </div>
+        <p class="miudo">Balcão só valida cupons. Dono vê leads, indicadores e altera tudo.</p>
+      </form>
+    </section>
+  </main>
+</div>
+
+<script src="/comum.js"></script>
+<script src="/vendor/qrcode.js"></script>
+<script src="/painel.js"></script>
+</body>
+</html>
