@@ -1,0 +1,139 @@
+{
+  "note": "Dados fictícios para executar o núcleo. Pessoas, CPF, documentos, hashes e valores são inventados; o CPF 000.000.000-00 é inválido de propósito e nunca coincide com uma pessoa real. As imagens do pacote são telas reais da Nina montadas com dados demonstrativos.",
+  "scope": {"tenantId": "restaurante-exemplo", "storeId": "loja-centro"},
+  "momentos": {
+    "abertura": "2026-11-17T10:00:00-03:00",
+    "envio": "2026-11-18T20:15:00-03:00",
+    "cancelamento": "2026-11-19T11:00:00-03:00",
+    "reenvio": "2026-11-20T09:00:00-03:00",
+    "quaseVencido": "2026-11-24T09:59:00-03:00",
+    "vencido": "2026-11-24T10:00:00-03:00",
+    "conferencia": "2026-11-27T10:00:00-03:00",
+    "conclusao": "2026-11-27T15:00:00-03:00"
+  },
+  "tokens": {
+    "convite": "token-ficticio-convite-maria-0001",
+    "reenvio": "token-ficticio-reenvio-maria-0002",
+    "primeiroAcesso": "token-ficticio-portal-maria-0003"
+  },
+  "atores": {
+    "dono": {"id": "usr-dono", "tenantId": "restaurante-exemplo", "storeId": "loja-centro", "papel": "OWNER", "permissoes": ["SAUDE_OCUPACIONAL"]},
+    "gerente": {"id": "usr-gerente", "tenantId": "restaurante-exemplo", "storeId": "loja-centro", "papel": "MANAGER", "permissoes": []},
+    "outraLoja": {"id": "usr-outra-loja", "tenantId": "restaurante-exemplo", "storeId": "loja-praia", "papel": "OWNER", "permissoes": ["SAUDE_OCUPACIONAL"]}
+  },
+  "admissaoAberta": {
+    "id": "adm-1",
+    "tenantId": "restaurante-exemplo",
+    "storeId": "loja-centro",
+    "status": "PENDENTE",
+    "versao": 1,
+    "nome": "Maria Exemplo",
+    "telefone": "(00) 90000-0000",
+    "email": "maria.exemplo@exemplo.invalid",
+    "cpf": null,
+    "cargo": "Auxiliar de Cozinha",
+    "funcao": "AUXILIAR_COZINHA",
+    "setor": "COZINHA",
+    "salarioCentavos": 190000,
+    "tipoContrato": "EXPERIENCIA_45_45",
+    "dataAdmissao": "2026-12-01",
+    "jornada": {"tipoEscala": "6X1", "entrada": "07:00", "saida": "15:20", "intervaloMin": 60, "cargaSemanal": 44, "horasMensais": "220:00", "domingoACada": 3, "fonteConfirmacao": "Escala conferida pelo RH com a chefe de cozinha", "confirmadaEm": "2026-11-17T09:40:00-03:00", "confirmadaParaData": "2026-12-01"},
+    "tipoIdentidade": null,
+    "identidade": {},
+    "tituloEleitor": {},
+    "documentos": {},
+    "aso": null,
+    "asoDispensa": null,
+    "assinaturas": {},
+    "preenchidoEm": null
+  },
+  "candidatoEnvia": {
+    "cpf": "000.000.000-00",
+    "dataNascimento": "2000-01-01",
+    "endereco": {"cep": "00000-000", "rua": "Rua Exemplo", "numero": "100", "bairro": "Centro", "cidade": "Cidade Exemplo", "uf": "XX"},
+    "banco": {"pixTipo": "ALEATORIA", "pixChave": "chave-pix-ficticia"},
+    "emergencia": {"nome": "Contato Exemplo", "telefone": "(00) 90000-0001", "parentesco": "Irmã"},
+    "tipoIdentidade": "CNH",
+    "identidade": {"numero": "00000000000", "categoria": "B", "emissao": "2020-01-10"},
+    "tituloEleitor": {"numero": "000000000000", "zona": "000", "secao": "0000"},
+    "ctps": {"digital": true},
+    "pis": null,
+    "primeiroEmprego": true,
+    "salarioCentavos": 999999,
+    "storeId": "loja-praia",
+    "status": "CONCLUIDO"
+  },
+  "uploads": [
+    {"tipo": "cnh", "arquivo": {"id": "arq-cnh-1", "mime": "image/jpeg", "tamanho": 820000}},
+    {"tipo": "ctps", "arquivo": {"id": "arq-ctps-1", "mime": "image/jpeg", "tamanho": 640000}},
+    {"tipo": "comprovante", "arquivo": {"id": "arq-comp-1", "mime": "application/pdf", "tamanho": 300000}},
+    {"tipo": "tituloEleitor", "arquivo": {"id": "arq-tit-1", "mime": "image/png", "tamanho": 510000}}
+  ],
+  "uploadsRecusados": [
+    {"tipo": "foto", "arquivo": {"id": "arq-x-1", "mime": "image/svg+xml", "tamanho": 2000}, "motivo": "FORMATO_RECUSADO"},
+    {"tipo": "comprovante", "arquivo": {"id": "arq-x-2", "mime": "application/pdf", "tamanho": 6291456}, "motivo": "TAMANHO_RECUSADO"},
+    {"tipo": "passaporte", "arquivo": {"id": "arq-x-3", "mime": "image/jpeg", "tamanho": 1000}, "motivo": "TIPO_INVALIDO"}
+  ],
+  "admissaoParaConcluir": {
+    "id": "adm-1",
+    "tenantId": "restaurante-exemplo",
+    "storeId": "loja-centro",
+    "status": "DOCS_RECEBIDOS",
+    "versao": 6,
+    "nome": "Maria Exemplo",
+    "telefone": "(00) 90000-0000",
+    "email": "maria.exemplo@exemplo.invalid",
+    "cpf": "000.000.000-00",
+    "dataNascimento": "2000-01-01",
+    "cargo": "Auxiliar de Cozinha",
+    "funcao": "AUXILIAR_COZINHA",
+    "setor": "COZINHA",
+    "salarioCentavos": 190000,
+    "tipoContrato": "EXPERIENCIA_45_45",
+    "dataAdmissao": "2026-12-01",
+    "jornada": {"tipoEscala": "6X1", "entrada": "07:00", "saida": "15:20", "intervaloMin": 60, "cargaSemanal": 44, "horasMensais": "220:00", "domingoACada": 3, "fonteConfirmacao": "Escala conferida pelo RH com a chefe de cozinha", "confirmadaEm": "2026-11-17T09:40:00-03:00", "confirmadaParaData": "2026-12-01"},
+    "endereco": {"cep": "00000-000", "rua": "Rua Exemplo", "numero": "100", "bairro": "Centro", "cidade": "Cidade Exemplo", "uf": "XX"},
+    "banco": {"pixTipo": "ALEATORIA", "pixChave": "chave-pix-ficticia"},
+    "emergencia": {"nome": "Contato Exemplo", "telefone": "(00) 90000-0001", "parentesco": "Irmã"},
+    "tipoIdentidade": "CNH",
+    "identidade": {"numero": "00000000000", "categoria": "B", "emissao": "2020-01-10"},
+    "tituloEleitor": {"numero": "000000000000", "zona": "000", "secao": "0000"},
+    "ctps": {"digital": true},
+    "pis": null,
+    "primeiroEmprego": true,
+    "documentos": {"cnh": ["arq-cnh-1"], "ctps": ["arq-ctps-1"], "comprovante": ["arq-comp-1"], "tituloEleitor": ["arq-tit-1"]},
+    "aso": {"arquivoId": "arq-aso-1", "dataExame": "2026-11-25", "dataValidade": null, "apto": true, "sha256": "hash-ficticio-aso", "conferidoPor": "usr-gerente"},
+    "asoDispensa": null,
+    "assinaturas": {
+      "contrato": {"arquivoId": "arq-contrato-1", "revisaoAtual": 1, "revisaoAssinada": 1, "assinadoEm": "2026-11-26T14:00:00-03:00", "hashAssinatura": "hash-ficticio-assinatura-contrato", "envelopeStatus": "CONCLUIDO"},
+      "regulamento": {"arquivoId": "arq-regulamento-1", "revisaoAtual": 1, "revisaoAssinada": null, "assinadoEm": null, "hashAssinatura": null, "envelopeStatus": "ENVIADO"}
+    },
+    "preenchidoEm": "2026-11-18T20:15:00-03:00"
+  },
+  "regulamentoAssinado": {"arquivoId": "arq-regulamento-1", "revisaoAtual": 1, "revisaoAssinada": 1, "assinadoEm": "2026-11-27T14:30:00-03:00", "hashAssinatura": "hash-ficticio-assinatura-regulamento", "envelopeStatus": "CONCLUIDO"},
+  "armazenamento": {
+    "arq-cnh-1": {"tipo": "cnh", "sha256": "hash-ficticio-cnh"},
+    "arq-ctps-1": {"tipo": "ctps", "sha256": "hash-ficticio-ctps"},
+    "arq-comp-1": {"tipo": "comprovante", "sha256": "hash-ficticio-comprovante"},
+    "arq-tit-1": {"tipo": "tituloEleitor", "sha256": "hash-ficticio-titulo"},
+    "arq-aso-1": {"tipo": "aso", "sha256": "hash-ficticio-aso"},
+    "arq-contrato-1": {"tipo": "contrato", "sha256": "hash-ficticio-contrato"},
+    "arq-regulamento-1": {"tipo": "regulamento", "sha256": "hash-ficticio-regulamento"}
+  },
+  "funcionarios": [
+    {"id": "fun-9", "nome": "Funcionário Ativo Exemplo", "cpf": "000.000.000-00", "status": "ATIVO"},
+    {"id": "fun-3", "nome": "Ex-funcionária Exemplo", "cpf": "000.000.000-00", "status": "DESLIGADO"}
+  ],
+  "esperado": {
+    "linkExpira": "2026-11-24T10:00:00-03:00",
+    "linkReenviadoExpira": "2026-11-27T09:00:00-03:00",
+    "ignoradosNoRascunho": ["salarioCentavos", "status", "storeId"],
+    "pendenciasAberta": ["envio", "cpf", "titulo", "identidade", "fotoCpf", "ctps", "comprovante", "aso", "contrato", "regulamento"],
+    "pendenciasNaConferencia": ["regulamento"],
+    "textoRegulamento": "Regulamento do setor (Cozinha) assinado",
+    "arquivosNoPacote": 7,
+    "integracoes": ["PORTAL", "PONTO", "BENEFICIOS", "CHAT"],
+    "primeiroAcessoExpira": "2026-11-29T15:00:00-03:00",
+    "mensagemCpf": "Não conseguimos seguir com este CPF. Confira o número ou fale com o RH da loja."
+  }
+}

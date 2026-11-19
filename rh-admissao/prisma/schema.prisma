@@ -1,0 +1,298 @@
+// Admissão por link: esquema do banco.
+// Toda relação operacional carrega tenantId e storeId. O escopo vem da sessão no servidor, nunca do JSON.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Base: empresa, loja, quem usa o painel e quem trabalha ----------
+
+model Tenant {
+  id        String   @id @default(cuid())
+  nome      String
+  criadoEm  DateTime @default(now())
+  lojas     Loja[]
+}
+
+model Loja {
+  id        String   @id @default(cuid())
+  tenantId  String
+  nome      String
+  // Fuso da loja: admissão, exame e validade são dia civil da loja.
+  timezone  String   @default("America/Sao_Paulo")
+  criadoEm  DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
+}
+
+enum Papel {
+  OWNER
+  ADMIN
+  MANAGER
+}
+
+model Usuario {
+  id         String   @id @default(cuid())
+  tenantId   String
+  storeId    String
+  nome       String
+  email      String
+  papel      Papel
+  // Ex.: SAUDE_OCUPACIONAL libera abrir o ASO.
+  permissoes String[] @default([])
+  ativo      Boolean  @default(true)
+  criadoEm   DateTime @default(now())
+
+  @@unique([tenantId, email])
+  @@index([tenantId, storeId])
+}
+
+enum StatusFuncionario {
+  ATIVO
+  DESLIGADO
+}
+
+model Funcionario {
+  id           String            @id @default(cuid())
+  tenantId     String
+  storeId      String
+  nome         String
+  cpf          String // só dígitos
+  email        String?
+  cargo        String
+  funcao       String
+  dataAdmissao DateTime          @db.Date
+  status       StatusFuncionario @default(ATIVO)
+  admissaoId   String?           @unique
+  criadoEm     DateTime          @default(now())
+
+  @@index([tenantId, cpf])
+}
+
+// ---------- Política de admissão por loja (o que na Nina está no código) ----------
+
+model PoliticaAdmissao {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  storeId               String
+  // Lista do contador por tipo de contrato: { "EXPERIENCIA_45_45": ["ctps", ...], ... } (documentos além dos sempre exigidos).
+  documentosPorContrato Json     @default("{}")
+  setoresComRegulamento String[] @default(["SALAO", "COZINHA"])
+  janelaFolhaDiaInicio  Int      @default(1)
+  janelaFolhaDiaFim     Int      @default(25)
+  prazoAnonimizarDias   Int      @default(30)
+  atualizadoEm          DateTime @updatedAt
+
+  @@unique([tenantId, storeId])
+}
+
+// ---------- Admissão ----------
+
+enum StatusAdmissao {
+  PENDENTE
+  DOCS_RECEBIDOS
+  ESOCIAL
+  CONCLUIDO
+  CANCELADO
+}
+
+enum TipoContrato {
+  EXPERIENCIA_30_60
+  EXPERIENCIA_45_45
+  INDETERMINADO
+  APRENDIZ
+}
+
+enum TipoIdentidade {
+  RG_NOVO_CIN
+  CNH
+  RG_ANTIGO
+}
+
+model Admissao {
+  id               String          @id @default(cuid())
+  tenantId         String
+  storeId          String
+  status           StatusAdmissao  @default(PENDENTE)
+  versao           Int             @default(1)
+  // Aberto pelo RH
+  nome             String
+  telefone         String
+  email            String?
+  cpf              String? // só dígitos
+  cargo            String
+  funcao           String
+  setor            String
+  salarioCentavos  Int
+  tipoContrato     TipoContrato
+  dataAdmissao     DateTime        @db.Date
+  jornada          Json // validada no núcleo, com confirmadaEm e confirmadaParaData
+  // Preenchido pelo candidato (lista fechada de campos)
+  dadosCandidato   Json            @default("{}")
+  tipoIdentidade   TipoIdentidade?
+  preenchidoEm     DateTime?
+  // Fim
+  concluidoEm      DateTime?
+  canceladoEm      DateTime?
+  canceladoPor     String?
+  motivo           String?
+  anonimizarEm     DateTime?
+  anonimizadoEm    DateTime?
+  criadoPor        String
+  criadoEm         DateTime        @default(now())
+  atualizadoEm     DateTime        @updatedAt
+
+  links        LinkAdmissao[]
+  arquivos     ArquivoAdmissao[]
+  asos         AsoAdmissao[]
+  dispensas    DispensaAso[]
+  assinaturas  Assinatura[]
+  eventos      EventoAdmissao[]
+  integracoes  IntegracaoAdmissao[]
+
+  @@index([tenantId, storeId, status])
+}
+
+enum FinalidadeLink {
+  PREENCHER_ADMISSAO
+  PRIMEIRO_ACESSO
+}
+
+// Guarda só o hash do token. Um link ativo por admissão e finalidade: reenviar revoga o anterior na mesma transação.
+model LinkAdmissao {
+  id         String         @id @default(cuid())
+  admissaoId String
+  finalidade FinalidadeLink
+  tokenHash  String         @unique
+  criadoEm   DateTime       @default(now())
+  expiraEm   DateTime
+  usadoEm    DateTime?
+  revogadoEm DateTime?
+  admissao   Admissao       @relation(fields: [admissaoId], references: [id])
+
+  @@index([admissaoId, finalidade])
+}
+
+enum TipoArquivo {
+  rg
+  cpf
+  cnh
+  ctps
+  comprovante
+  tituloEleitor
+  foto
+  aso
+  contrato
+  regulamento
+}
+
+// Arquivo no bucket privado. Nunca URL permanente. apagadoEm marca que o objeto foi removido do bucket.
+model ArquivoAdmissao {
+  id         String      @id @default(cuid())
+  admissaoId String
+  tipo       TipoArquivo
+  chave      String      @unique
+  mime       String
+  tamanho    Int
+  sha256     String
+  criadoEm   DateTime    @default(now())
+  apagadoEm  DateTime?
+  admissao   Admissao    @relation(fields: [admissaoId], references: [id])
+
+  @@index([admissaoId, tipo])
+}
+
+// Cada conferência do ASO é uma versão nova.
+model AsoAdmissao {
+  id           String    @id @default(cuid())
+  admissaoId   String
+  arquivoId    String
+  sha256       String
+  dataExame    DateTime  @db.Date
+  dataValidade DateTime? @db.Date
+  apto         Boolean
+  conferidoPor String
+  criadoEm     DateTime  @default(now())
+  admissao     Admissao  @relation(fields: [admissaoId], references: [id])
+
+  @@index([admissaoId, criadoEm])
+}
+
+model DispensaAso {
+  id            String    @id @default(cuid())
+  admissaoId    String
+  autorizadoPor String
+  motivo        String
+  criadoEm      DateTime  @default(now())
+  revogadaEm    DateTime?
+  admissao      Admissao  @relation(fields: [admissaoId], references: [id])
+}
+
+enum DocumentoAssinatura {
+  CONTRATO
+  REGULAMENTO
+}
+
+model Assinatura {
+  id              String              @id @default(cuid())
+  admissaoId      String
+  documento       DocumentoAssinatura
+  arquivoId       String?
+  revisaoAtual    Int                 @default(1)
+  revisaoAssinada Int?
+  envelopeStatus  String              @default("RASCUNHO")
+  assinadoEm      DateTime?
+  hashAssinatura  String?
+  atualizadoEm    DateTime            @updatedAt
+  admissao        Admissao            @relation(fields: [admissaoId], references: [id])
+
+  @@unique([admissaoId, documento])
+}
+
+// Trilha append-only (um trigger no banco recusa UPDATE e DELETE). Sem CPF nem imagem.
+model EventoAdmissao {
+  id         String   @id @default(cuid())
+  admissaoId String
+  operacaoId String   @unique
+  tipo       String
+  ator       String
+  antes      Json?
+  depois     Json?
+  motivo     String?
+  criadoEm   DateTime @default(now())
+  admissao   Admissao @relation(fields: [admissaoId], references: [id])
+
+  @@index([admissaoId, criadoEm])
+}
+
+enum TipoIntegracao {
+  PORTAL
+  PONTO
+  BENEFICIOS
+  CHAT
+}
+
+enum StatusIntegracao {
+  PENDENTE
+  OK
+  ERRO
+}
+
+model IntegracaoAdmissao {
+  id          String           @id @default(cuid())
+  admissaoId  String
+  tipo        TipoIntegracao
+  status      StatusIntegracao @default(PENDENTE)
+  tentativas  Int              @default(0)
+  ultimoErro  String?
+  atualizadoEm DateTime        @updatedAt
+  admissao    Admissao         @relation(fields: [admissaoId], references: [id])
+
+  @@unique([admissaoId, tipo])
+}
